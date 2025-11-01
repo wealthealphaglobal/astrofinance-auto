@@ -1,9 +1,10 @@
 name: Daily Workflow
 
+# Triggers: scheduled daily + manual for any branch
 on:
   schedule:
     - cron: '0 8 * * *'  # Runs daily at 08:00 UTC
-  workflow_dispatch:     # Allows manual trigger
+  workflow_dispatch:      # Manual trigger
 
 permissions:
   contents: read
@@ -16,6 +17,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Ensures full repo history
 
       - name: Set up Python 3.10
         uses: actions/setup-python@v4
