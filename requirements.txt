@@ -4,3 +4,8 @@ requests
 Pillow
 imageio
 imageio-ffmpeg
+pyyaml
+google-auth
+google-auth-oauthlib
+google-auth-httplib2
+google-api-python-client
