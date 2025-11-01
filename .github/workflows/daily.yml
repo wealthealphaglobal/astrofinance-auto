@@ -3,7 +3,7 @@ name: Daily AstroFinance Upload
 on:
   schedule:
     - cron: '0 8 * * *'   # runs every day at 8 AM UTC
-  workflow_dispatch:      # lets you run manually
+  workflow_dispatch:
 
 jobs:
   build:
@@ -12,7 +12,7 @@ jobs:
       - name: Checkout files
         uses: actions/checkout@v4
 
-      - name: Setup Python
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
@@ -20,10 +20,13 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt
-          python -m pip install moviepy gtts requests --user
+          python -m pip install moviepy gtts requests
+          echo "✅ Dependencies installed"
+
+      - name: Verify MoviePy installation
+        run: |
+          python -c "import moviepy; print('🎬 MoviePy loaded successfully:', moviepy.__version__)"
 
       - name: Run main script
         run: |
-          python3 -m moviepy --version
-          python3 main.py
+          python main.py
