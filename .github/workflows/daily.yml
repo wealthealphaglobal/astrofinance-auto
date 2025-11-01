@@ -2,40 +2,32 @@ name: Daily Workflow
 
 on:
   schedule:
-    - cron: '0 0 * * *'  # Runs daily at midnight UTC
-  workflow_dispatch:
+    - cron: '0 8 * * *'  # Runs daily at 08:00 UTC
+  workflow_dispatch:     # Allows manual trigger
 
 jobs:
   build-and-run:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+    - name: Checkout repository
+      uses: actions/checkout@v3
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: 3.10
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.10
+        check-latest: true
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install \
-            moviepy==2.1.2 \
-            moviepy[ffmpeg] \
-            requests \
-            pillow \
-            tqdm \
-            numpy \
-            pyyaml \
-            imageio \
-            decorator
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install moviepy[ffmpeg] requests pillow tqdm numpy pyyaml decorator gtts imageio
 
-      - name: Verify MoviePy installation
-        run: |
-          python -c "import moviepy; print('🎬 MoviePy loaded successfully:', moviepy.__version__)"
-          python -c "from moviepy.editor import VideoFileClip; print('🎬 MoviePy.editor loaded!')"
+    - name: Verify MoviePy installation
+      run: |
+        python -c "import moviepy; print('🎬 MoviePy loaded successfully:', moviepy.__version__)"
+        python -c "from moviepy.editor import VideoFileClip; print('🎬 MoviePy.editor loaded!')"
 
-      - name: Run main script
-        run: python main.py
+    - name: Run main script
+      run: python main.py
