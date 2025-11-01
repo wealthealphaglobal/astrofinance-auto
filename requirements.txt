@@ -1,3 +1,6 @@
-moviepy
-gtts
+moviepy==1.0.3
+gTTS
 requests
+Pillow
+imageio
+imageio-ffmpeg
