@@ -35,7 +35,7 @@ jobs:
 
 
       - name: Verify MoviePy.editor
-        run: python -c "from moviepy.editor import VideoFileClip; print('🎬 MoviePy.editor loaded!')"
+        run: python -c "from moviepy.editor import VideoFileClip; print('MoviePy.editor loaded!')"
 
       - name: Run main script
         run: python main.py
