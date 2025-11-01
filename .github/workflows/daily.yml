@@ -5,9 +5,12 @@ on:
   schedule:
     - cron: '0 8 * * *'
   workflow_dispatch: # Allows manual trigger
+  push: # Add this temporarily to test
+    branches:
+      - main
 
 permissions:
-  contents: read
+  contents: write # Changed from 'read' to allow commits if needed
 
 jobs:
   build-and-run:
@@ -65,6 +68,26 @@ jobs:
               raise
           PY
 
-      # 8️⃣ Run main script
+      # 8️⃣ Create a test background video (since background.mp4 doesn't exist)
+      - name: Create background video
+        run: |
+          python - <<'PY'
+          from moviepy.editor import ColorClip
+          # Create a simple 15-second black background video
+          clip = ColorClip(size=(1080, 1920), color=(0, 0, 0), duration=15)
+          clip.write_videofile("background.mp4", fps=24, codec="libx264", logger=None)
+          print("✅ Background video created")
+          PY
+
+      # 9️⃣ Run main script
       - name: Run main.py
         run: python main.py
+        
+      # 🔟 Upload generated videos as artifacts
+      - name: Upload videos
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: astro-videos
+          path: videos/
+          retention-days: 7
