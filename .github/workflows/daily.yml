@@ -1,26 +1,25 @@
-name: Daily Workflow
+name: Daily AstroFinance Content Generator
 
-# Trigger schedule: daily at 08:00 UTC, and manual trigger
 on:
   schedule:
-    - cron: '0 8 * * *'
-  workflow_dispatch: # Allows manual trigger
+    - cron: '0 8 * * *'  # Daily at 8 AM UTC
+  workflow_dispatch:  # Manual trigger
 
 permissions:
-  contents: write # Changed from 'read' to allow commits if needed
+  contents: write
 
 jobs:
-  build-and-run:
+  generate-and-upload:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 120  # 2 hours for video generation
 
     steps:
       # 1️⃣ Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2️⃣ Set up Python 3.10
-      - name: Set up Python
+      # 2️⃣ Set up Python
+      - name: Set up Python 3.10
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
@@ -30,8 +29,13 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg imagemagick
+          
+      # 4️⃣ Fix ImageMagick security policy
+      - name: Fix ImageMagick policy
+        run: |
+          sudo sed -i '/<policy domain="path" rights="none" pattern="@\*"/d' /etc/ImageMagick-6/policy.xml
 
-      # 4️⃣ Cache pip
+      # 5️⃣ Cache pip packages
       - name: Cache pip
         uses: actions/cache@v4
         with:
@@ -40,39 +44,121 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-
 
-      # 5️⃣ Install Python dependencies
+      # 6️⃣ Install Python dependencies
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install moviepy==1.0.3 gTTS requests Pillow imageio imageio-ffmpeg
+          pip install -r requirements.txt
 
-      # 6️⃣ Verify installations
+      # 7️⃣ Verify installations
       - name: Verify installations
         run: |
-          python -c "import moviepy; print('MoviePy version:', moviepy.__version__)"
-          python -c "from moviepy.editor import VideoFileClip; print('✅ MoviePy editor imported successfully')"
-          python -c "import gtts; print('✅ gTTS imported successfully')"
+          python -c "import moviepy; print('✅ MoviePy:', moviepy.__version__)"
+          python -c "import yaml; print('✅ PyYAML installed')"
+          python -c "from gtts import gTTS; print('✅ gTTS installed')"
           ffmpeg -version | head -n 1
 
-      # 7️⃣ Create background video
-      - name: Create background video
+      # 8️⃣ Create placeholder background files (if not in repo)
+      - name: Create placeholder media files
         run: |
-          python -c "
+          # Create background video if it doesn't exist
+          if [ ! -f "background.mp4" ]; then
+            echo "Creating placeholder background video..."
+            python -c "
           from moviepy.editor import ColorClip
-          clip = ColorClip(size=(1080, 1920), color=(0, 0, 0), duration=15)
-          clip.write_videofile('background.mp4', fps=24, codec='libx264', audio=False, logger=None)
+          import numpy as np
+          # Create a gradient background
+          clip = ColorClip(size=(1920, 1080), color=(20, 20, 60), duration=60)
+          clip.write_videofile('background.mp4', fps=30, codec='libx264', audio=False, logger=None)
           print('✅ Background video created')
-          "
+            "
+          fi
+          
+          # Create placeholder OM Mantra audio if it doesn't exist
+          if [ ! -f "om_mantra.mp3" ]; then
+            echo "⚠️ om_mantra.mp3 not found. Please add your OM Mantra audio file."
+            echo "Creating silent placeholder..."
+            python -c "
+          from moviepy.editor import AudioClip
+          import numpy as np
+          # Create 5 minutes of silence as placeholder
+          audio = AudioClip(lambda t: 0, duration=300, fps=44100)
+          audio.write_audiofile('om_mantra.mp3', logger=None)
+            "
+          fi
 
-      # 8️⃣ Run main script
-      - name: Run main.py
-        run: python main.py
-        
-      # 9️⃣ Upload generated videos as artifacts
-      - name: Upload videos
+      # 9️⃣ Generate videos
+      - name: Generate daily content
+        env:
+          HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: |
+          echo "🎬 Starting FREE content generation..."
+          python main.py
+
+      # 🔟 Upload to platforms (if enabled)
+      - name: Upload to social media
+        env:
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+          INSTAGRAM_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
+          INSTAGRAM_USER_ID: ${{ secrets.INSTAGRAM_USER_ID }}
+          TIKTOK_ACCESS_TOKEN: ${{ secrets.TIKTOK_ACCESS_TOKEN }}
+          TWITTER_API_KEY: ${{ secrets.TWITTER_API_KEY }}
+          TWITTER_API_SECRET: ${{ secrets.TWITTER_API_SECRET }}
+          TWITTER_ACCESS_TOKEN: ${{ secrets.TWITTER_ACCESS_TOKEN }}
+          TWITTER_ACCESS_SECRET: ${{ secrets.TWITTER_ACCESS_SECRET }}
+        run: |
+          echo "🚀 Starting upload process..."
+          python upload.py
+        continue-on-error: true  # Don't fail workflow if upload fails
+
+      # 1️⃣1️⃣ Upload videos as artifacts
+      - name: Upload generated videos
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: astro-videos
+          name: astrofinance-videos-${{ github.run_number }}
           path: videos/
           retention-days: 7
+
+      # 1️⃣2️⃣ Upload metadata
+      - name: Upload metadata
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: metadata-${{ github.run_number }}
+          path: |
+            videos/metadata.json
+            videos/upload_results.json
+          retention-days: 30
+
+      # 1️⃣3️⃣ Clean up temp files
+      - name: Cleanup
+        if: always()
+        run: |
+          rm -rf temp/
+          echo "✅ Cleanup complete"
+
+      # 1️⃣4️⃣ Summary
+      - name: Workflow summary
+        if: always()
+        run: |
+          echo "## 🌟 AstroFinance Daily Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📅 **Date:** $(date +'%B %d, %Y')" >> $GITHUB_STEP_SUMMARY
+          echo "⏰ **Run Time:** $(date +'%H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ -f "videos/metadata.json" ]; then
+            echo "✅ **Videos Generated Successfully**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "📺 YouTube long-form video: Ready" >> $GITHUB_STEP_SUMMARY
+            echo "📱 Short-form content: Ready" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Video Generation Failed**" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📥 **Download videos from Artifacts section below**" >> $GITHUB_STEP_SUMMARY
