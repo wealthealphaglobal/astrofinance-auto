@@ -24,9 +24,10 @@ jobs:
       # Step 3: Install dependencies (force correct MoviePy)
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          python -m pip uninstall -y moviepy
-          python -m pip install moviepy==2.2.1 gtts requests
+         python -m pip install --upgrade pip
+         pip uninstall -y moviepy
+         pip install --no-cache-dir moviepy==2.2.1 gtts requests
+
 
       # Step 4: Verify MoviePy editor exists
       - name: Verify MoviePy.editor
