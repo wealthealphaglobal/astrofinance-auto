@@ -1,6 +1,8 @@
 import requests, os, random
 from gtts import gTTS
-from moviepy.editor import VideoFileClip, AudioFileClip, TextClip, CompositeVideoClip
+from moviepy.editor import VideoFileClip, AudioFileClip, CompositeVideoClip, ImageClip
+from PIL import Image, ImageDraw, ImageFont
+import numpy as np
 
 # --------- SETTINGS ---------
 SIGN_LIST = ["Aries","Taurus","Gemini","Cancer","Leo","Virgo","Libra","Scorpio","Sagittarius","Capricorn","Aquarius","Pisces"]
@@ -40,6 +42,32 @@ def make_script(sign, horoscope, btc_price):
     text = f"{sign}: {horoscope} {finance_line}"
     return text
 
+def create_text_image(text, width=1080, height=200, fontsize=70):
+    """Create a text image using PIL instead of ImageMagick"""
+    # Create a transparent image
+    img = Image.new('RGBA', (width, height), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    
+    # Try to use a nice font, fallback to default
+    try:
+        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", fontsize)
+    except:
+        font = ImageFont.load_default()
+    
+    # Get text bounding box for centering
+    bbox = draw.textbbox((0, 0), text, font=font)
+    text_width = bbox[2] - bbox[0]
+    text_height = bbox[3] - bbox[1]
+    
+    # Center the text
+    x = (width - text_width) // 2
+    y = (height - text_height) // 2
+    
+    # Draw text with white color
+    draw.text((x, y), text, font=font, fill=(255, 255, 255, 255))
+    
+    return np.array(img)
+
 def make_video(sign, script):
     print(f"🎬 Creating video for {sign}...")
     
@@ -66,22 +94,16 @@ def make_video(sign, script):
     video_clip = bg_clip.subclip(0, audio_duration)
     print(f"  ✓ Video clip prepared: {audio_duration:.2f}s")
     
-    # Create text overlay
-    txt = TextClip(
-        f"{sign} — AstroFinance", 
-        fontsize=70, 
-        color='white',
-        font='Arial-Bold',  # Added font parameter
-        size=(1080, None),
-        method='caption'
-    ).set_duration(audio_duration).set_position(('center', 'bottom'))
+    # Create text overlay using PIL
+    text_img = create_text_image(f"{sign} — AstroFinance", width=1080, height=200, fontsize=70)
+    txt_clip = ImageClip(text_img).set_duration(audio_duration).set_position(('center', 'bottom'))
     print(f"  ✓ Text overlay created")
     
     # Combine video with audio
     video_with_audio = video_clip.set_audio(audio)
     
     # Composite everything together
-    final = CompositeVideoClip([video_with_audio, txt])
+    final = CompositeVideoClip([video_with_audio, txt_clip])
     
     # Write output
     output = f"{UPLOAD_FOLDER}/{sign}.mp4"
