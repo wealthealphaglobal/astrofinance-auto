@@ -180,18 +180,18 @@ def get_fallback_health_tips(sign):
 # ========================================
 
 def generate_daily_content(sign, btc_price, market_trend):
-    """Generate all content for one zodiac sign using ChatGPT"""
+    """Generate all content for one zodiac sign using FREE AI"""
     print(f"\n✨ Generating content for {sign}...")
     
     # Get horoscope
-    horoscope = get_chatgpt_content(
-        config['chatgpt']['prompts']['horoscope'],
+    horoscope = get_free_ai_content(
+        config['free_ai']['prompts']['horoscope'],
         sign
     ) or FALLBACK_HOROSCOPES.get(sign, "The stars align favorably for you today.")
     
     # Get wealth tips
-    wealth_tips_raw = get_chatgpt_content(
-        config['chatgpt']['prompts']['wealth'],
+    wealth_tips_raw = get_free_ai_content(
+        config['free_ai']['prompts']['wealth'],
         sign,
         btc_price,
         market_trend
@@ -203,8 +203,8 @@ def generate_daily_content(sign, btc_price, market_trend):
         wealth_tips = get_fallback_wealth_tips(sign)
     
     # Get health tips
-    health_tips_raw = get_chatgpt_content(
-        config['chatgpt']['prompts']['health'],
+    health_tips_raw = get_free_ai_content(
+        config['free_ai']['prompts']['health'],
         sign
     )
     
@@ -406,54 +406,79 @@ def create_youtube_long_video(all_segments):
     print(f"  ✅ YouTube video complete! Duration: {final_video.duration/60:.1f} minutes")
     return output_path
 
-def create_shorts_reels(all_content):
-    """Create short-form content for each platform"""
-    print("\n📱 Creating short-form content...")
+def create_youtube_shorts(all_content):
+    """Create 12 YouTube Shorts (one per zodiac sign, under 59 seconds)"""
+    print("\n📱 Creating 12 YouTube Shorts (under 59 seconds each)...")
     
-    outputs = {}
+    shorts_folder = f"{config['video']['output_folder']}/youtube_shorts"
+    os.makedirs(shorts_folder, exist_ok=True)
     
-    for platform in ['youtube', 'instagram', 'tiktok']:
-        if not config['platforms'][platform]['enabled']:
-            continue
-            
-        print(f"\n  Creating {platform} shorts...")
-        
-        if platform == 'youtube':
-            resolution = config['platforms']['youtube']['shorts']['resolution']
-            max_duration = config['platforms']['youtube']['shorts']['duration']
-        else:
-            resolution = config['platforms'][platform]['resolution']
-            max_duration = config['platforms'][platform]['duration']
-        
-        platform_videos = []
-        
-        # Create one short per zodiac sign
-        for sign in config['zodiac_signs']:
-            content = all_content[sign]
-            
-            # Condense to fit duration
-            short_text = f"🌟 {sign} 🌟\n\n{content['horoscope'][:100]}...\n\n💰 {content['wealth_tips'][0][:50]}...\n\n🏥 {content['health_tips'][0][:50]}..."
-            short_speech = f"{sign}. {content['horoscope'][:100]}. Wealth tip: {content['wealth_tips'][0][:50]}. Health tip: {content['health_tips'][0][:50]}."
-            
-            audio_file = text_to_speech(short_speech, f"{config['video']['temp_folder']}/{sign}_{platform}_short.mp3")
-            audio_clip = AudioFileClip(audio_file)
-            
-            # Limit to max duration
-            duration = min(audio_clip.duration, max_duration)
-            audio_clip = audio_clip.subclip(0, duration)
-            
-            img = create_text_image(short_text, resolution[0], resolution[1], 45)
-            video_clip = ImageClip(img).set_duration(duration).set_audio(audio_clip)
-            
-            output_path = f"{config['video']['output_folder']}/{platform}/{sign}_{datetime.now().strftime('%Y%m%d')}.mp4"
-            video_clip.write_videofile(output_path, fps=30, codec='libx264', audio_codec='aac', preset='ultrafast')
-            
-            platform_videos.append(output_path)
-        
-        outputs[platform] = platform_videos
-        print(f"  ✅ Created {len(platform_videos)} {platform} videos")
+    short_videos = []
+    resolution = config['platforms']['youtube']['shorts']['resolution']
     
-    return outputs
+    for sign in config['zodiac_signs']:
+        content = all_content[sign]
+        
+        print(f"\n  Creating short for {sign}...")
+        
+        # Condense content to fit in 59 seconds
+        # Keep it short and punchy!
+        short_horoscope = content['horoscope'][:120]  # Truncate if too long
+        short_wealth = content['wealth_tips'][0][:80] if content['wealth_tips'] else "Stay financially wise today."
+        short_health = content['health_tips'][0][:80] if content['health_tips'] else "Take care of your health."
+        
+        # Create condensed text
+        short_text = f"🌟 {sign} 🌟\n\n✨ {short_horoscope}\n\n💰 {short_wealth}\n\n🏥 {short_health}"
+        
+        # Create speech (keep it brief!)
+        short_speech = f"{sign}. {short_horoscope}. Wealth tip: {short_wealth}. Health tip: {short_health}."
+        
+        # Generate audio
+        audio_file = f"{config['video']['temp_folder']}/{sign}_short.mp3"
+        text_to_speech(short_speech, audio_file)
+        audio_clip = AudioFileClip(audio_file)
+        
+        # CRITICAL: Limit to 58 seconds to be safe (YouTube Shorts must be under 60)
+        max_duration = 58
+        if audio_clip.duration > max_duration:
+            audio_clip = audio_clip.subclip(0, max_duration)
+        
+        duration = audio_clip.duration
+        
+        # Create text image
+        img = create_text_image(short_text, resolution[0], resolution[1], 45)
+        video_clip = ImageClip(img).set_duration(duration).set_audio(audio_clip)
+        
+        # Add watermark
+        watermark_img = create_text_image(config['branding']['watermark_text'], 250, 60, 25, False)
+        watermark = ImageClip(watermark_img).set_duration(duration).set_position(('right', 'top')).set_opacity(0.7)
+        
+        final_clip = CompositeVideoClip([video_clip, watermark])
+        
+        # Export
+        output_path = f"{shorts_folder}/{sign}_{datetime.now().strftime('%Y%m%d')}.mp4"
+        final_clip.write_videofile(
+            output_path,
+            fps=config['platforms']['youtube']['shorts']['fps'],
+            codec='libx264',
+            audio_codec='aac',
+            preset='ultrafast'
+        )
+        
+        short_videos.append(output_path)
+        print(f"  ✅ {sign} short created ({duration:.1f}s) - {output_path}")
+        
+        # Cleanup
+        audio_clip.close()
+        video_clip.close()
+        final_clip.close()
+        try:
+            os.remove(audio_file)
+        except:
+            pass
+    
+    print(f"\n✅ Created {len(short_videos)} YouTube Shorts")
+    return short_videos
 
 # ========================================
 # MAIN EXECUTION
@@ -461,10 +486,17 @@ def create_shorts_reels(all_content):
 
 def main():
     print("=" * 60)
-    print("🌟 ASTROFINANCE DAILY - CONTENT GENERATOR 🌟")
+    print("🌟 ASTROFINANCE DAILY - FREE CONTENT GENERATOR 🌟")
     print("=" * 60)
     print(f"📅 Date: {datetime.now().strftime('%B %d, %Y')}")
-    print(f"🤖 Using ChatGPT: {bool(OPENAI_API_KEY)}")
+    
+    # Check which AI provider is available
+    if HUGGINGFACE_API_KEY:
+        print(f"🤖 Using FREE AI: HuggingFace ✅")
+    elif GROQ_API_KEY:
+        print(f"🤖 Using FREE AI: Groq ✅")
+    else:
+        print(f"⚠️ No AI API configured - using fallback content")
     
     # Get market data
     print("\n📊 Fetching market data...")
@@ -492,17 +524,20 @@ def main():
         )
         all_segments.append(segment)
     
-    # Create YouTube long-form video
-    youtube_video = create_youtube_long_video(all_segments)
+    # Create 1 BIG YouTube video (all signs)
+    print("\n" + "=" * 60)
+    print("📺 CREATING YOUTUBE VIDEOS")
+    print("=" * 60)
+    youtube_long_video = create_youtube_long_video(all_segments)
     
-    # Create short-form content
-    shorts = create_shorts_reels(all_content)
+    # Create 12 YouTube Shorts (one per sign, under 59 seconds)
+    youtube_shorts = create_youtube_shorts(all_content)
     
     # Save metadata for uploading
     metadata = {
         'date': datetime.now().strftime('%Y-%m-%d'),
-        'youtube_video': youtube_video,
-        'shorts': shorts,
+        'youtube_long_video': youtube_long_video,
+        'youtube_shorts': youtube_shorts,
         'content': all_content
     }
     
@@ -513,9 +548,13 @@ def main():
     print("✅ ALL VIDEOS GENERATED SUCCESSFULLY!")
     print("=" * 60)
     print(f"📁 Output folder: {config['video']['output_folder']}/")
-    print(f"📺 YouTube video: {youtube_video}")
-    print(f"📱 Shorts/Reels: {sum(len(v) for v in shorts.values())} files")
+    print(f"\n📺 YOUTUBE LONG VIDEO (40 mins):")
+    print(f"   {youtube_long_video}")
+    print(f"\n📱 YOUTUBE SHORTS (12 videos, <59 sec each):")
+    for i, short in enumerate(youtube_shorts, 1):
+        print(f"   {i}. {os.path.basename(short)}")
     print("\n🚀 Ready for upload!")
+    print("💰 TOTAL COST: $0.00 (100% FREE!)")
 
 if __name__ == "__main__":
     main()
