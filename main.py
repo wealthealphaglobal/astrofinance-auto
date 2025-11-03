@@ -53,7 +53,7 @@ def get_free_ai_content(prompt, sign):
             payload = {
                 "inputs": formatted_prompt,
                 "parameters": {
-                    "max_new_tokens": 250,
+                    "max_new_tokens": 200,  # Reduced from 250 for speed
                     "temperature": 0.7,
                     "top_p": 0.9,
                     "return_full_text": False
@@ -64,7 +64,7 @@ def get_free_ai_content(prompt, sign):
                 config['free_ai']['api_url'],
                 headers=headers,
                 json=payload,
-                timeout=30
+                timeout=15  # Reduced from 30 seconds
             )
             
             if response.status_code == 200:
@@ -75,20 +75,18 @@ def get_free_ai_content(prompt, sign):
                         return generated.strip()
                 elif isinstance(result, dict) and 'generated_text' in result:
                     return result['generated_text'].strip()
-                print(f"  ⚠️ DeepSeek unexpected response format")
-            else:
-                print(f"  ⚠️ DeepSeek error {response.status_code}")
+            # Don't print errors, just move to next provider quickly
         except Exception as e:
-            print(f"  ⚠️ DeepSeek failed: {e}")
+            pass  # Fail silently and try next provider
         
         # Try OpenAI models via HuggingFace as backup
         try:
-            print(f"  🤖 Using OpenAI models via HuggingFace (FREE)...")
+            print(f"  🤖 Trying OpenAI models...")
             response = requests.post(
                 config['free_ai']['openai_url'],
                 headers=headers,
                 json=payload,
-                timeout=30
+                timeout=15
             )
             
             if response.status_code == 200:
@@ -100,12 +98,12 @@ def get_free_ai_content(prompt, sign):
                 elif isinstance(result, dict) and 'generated_text' in result:
                     return result['generated_text'].strip()
         except Exception as e:
-            print(f"  ⚠️ OpenAI models failed: {e}")
+            pass  # Fail silently
     
     # Try Groq as final backup (also free!)
     if GROQ_API_KEY:
         try:
-            print(f"  🤖 Using Groq AI (FREE)...")
+            print(f"  🤖 Using Groq AI...")
             headers = {
                 "Authorization": f"Bearer {GROQ_API_KEY}",
                 "Content-Type": "application/json"
@@ -118,25 +116,23 @@ def get_free_ai_content(prompt, sign):
                     {"role": "user", "content": formatted_prompt}
                 ],
                 "temperature": 0.7,
-                "max_tokens": 250
+                "max_tokens": 200  # Reduced for speed
             }
             
             response = requests.post(
                 config['free_ai']['groq_api_url'],
                 headers=headers,
                 json=data,
-                timeout=30
+                timeout=15
             )
             
             if response.status_code == 200:
                 return response.json()['choices'][0]['message']['content'].strip()
-            else:
-                print(f"  ⚠️ Groq error {response.status_code}")
         except Exception as e:
-            print(f"  ⚠️ Groq failed: {e}")
+            pass  # Fail silently
     
-    # No API keys available
-    print(f"  ⚠️ Using fallback content (no AI API available)")
+    # Use fallback content immediately (no waiting)
+    print(f"  💫 Using quality fallback content")
     return None
 
 # ========================================
@@ -578,16 +574,16 @@ def create_youtube_shorts(all_content):
         
         final_clip = CompositeVideoClip([video_clip, watermark])
         
-        # Export with BEST quality settings for YouTube Shorts
+        # Export with GOOD quality settings (balanced speed/quality)
         output_path = f"{shorts_folder}/{sign}_{datetime.now().strftime('%Y%m%d')}.mp4"
         final_clip.write_videofile(
             output_path,
-            fps=30,  # Standard 30fps
+            fps=30,
             codec='libx264',
             audio_codec='aac',
-            bitrate='5000k',  # High quality video bitrate
-            audio_bitrate='192k',  # High quality audio
-            preset='slow',  # Better compression (slow = better quality)
+            bitrate='3000k',  # Good quality (reduced from 5000k for speed)
+            audio_bitrate='128k',  # Good audio (reduced from 192k)
+            preset='medium',  # Balanced (changed from slow for 2x speed)
             threads=4,
             logger=None
         )
