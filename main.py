@@ -36,17 +36,18 @@ GROQ_API_KEY = os.getenv('GROQ_API_KEY', '')
 # ========================================
 
 def get_free_ai_content(prompt, sign):
-    """Fetch content from FREE AI APIs (HuggingFace or Groq)"""
+    """Fetch content from FREE AI APIs (HuggingFace Router with DeepSeek/OpenAI or Groq)"""
     
     # Format prompt with variables
     formatted_prompt = prompt.format(sign=sign)
     
-    # Try HuggingFace first (completely free!)
+    # Try DeepSeek via HuggingFace first (excellent quality, completely free!)
     if HUGGINGFACE_API_KEY:
         try:
-            print(f"  🤖 Using HuggingFace AI (FREE)...")
+            print(f"  🤖 Using DeepSeek via HuggingFace (FREE)...")
             headers = {
-                "Authorization": f"Bearer {HUGGINGFACE_API_KEY}"
+                "Authorization": f"Bearer {HUGGINGFACE_API_KEY}",
+                "Content-Type": "application/json"
             }
             
             payload = {
@@ -72,13 +73,36 @@ def get_free_ai_content(prompt, sign):
                     generated = result[0].get('generated_text', '')
                     if generated:
                         return generated.strip()
-                print(f"  ⚠️ HuggingFace unexpected response format")
+                elif isinstance(result, dict) and 'generated_text' in result:
+                    return result['generated_text'].strip()
+                print(f"  ⚠️ DeepSeek unexpected response format")
             else:
-                print(f"  ⚠️ HuggingFace error {response.status_code}: {response.text[:100]}")
+                print(f"  ⚠️ DeepSeek error {response.status_code}")
         except Exception as e:
-            print(f"  ⚠️ HuggingFace failed: {e}")
+            print(f"  ⚠️ DeepSeek failed: {e}")
+        
+        # Try OpenAI models via HuggingFace as backup
+        try:
+            print(f"  🤖 Using OpenAI models via HuggingFace (FREE)...")
+            response = requests.post(
+                config['free_ai']['openai_url'],
+                headers=headers,
+                json=payload,
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                if isinstance(result, list) and len(result) > 0:
+                    generated = result[0].get('generated_text', '')
+                    if generated:
+                        return generated.strip()
+                elif isinstance(result, dict) and 'generated_text' in result:
+                    return result['generated_text'].strip()
+        except Exception as e:
+            print(f"  ⚠️ OpenAI models failed: {e}")
     
-    # Try Groq as backup (also free!)
+    # Try Groq as final backup (also free!)
     if GROQ_API_KEY:
         try:
             print(f"  🤖 Using Groq AI (FREE)...")
@@ -107,7 +131,7 @@ def get_free_ai_content(prompt, sign):
             if response.status_code == 200:
                 return response.json()['choices'][0]['message']['content'].strip()
             else:
-                print(f"  ⚠️ Groq error {response.status_code}: {response.text[:100]}")
+                print(f"  ⚠️ Groq error {response.status_code}")
         except Exception as e:
             print(f"  ⚠️ Groq failed: {e}")
     
@@ -317,7 +341,7 @@ def generate_daily_content(sign):
     }
 
 # ========================================
-# VIDEO CREATION
+# VIDEO CREATION - SHORTS ONLY
 # ========================================
 
 def create_text_image(text, width, height, fontsize, wrap=True):
@@ -554,14 +578,17 @@ def create_youtube_shorts(all_content):
         
         final_clip = CompositeVideoClip([video_clip, watermark])
         
-        # Export
+        # Export with BEST quality settings for YouTube Shorts
         output_path = f"{shorts_folder}/{sign}_{datetime.now().strftime('%Y%m%d')}.mp4"
         final_clip.write_videofile(
             output_path,
-            fps=config['platforms']['youtube']['shorts']['fps'],
+            fps=30,  # Standard 30fps
             codec='libx264',
             audio_codec='aac',
-            preset='ultrafast',
+            bitrate='5000k',  # High quality video bitrate
+            audio_bitrate='192k',  # High quality audio
+            preset='slow',  # Better compression (slow = better quality)
+            threads=4,
             logger=None
         )
         
@@ -601,33 +628,20 @@ def main():
     # Generate content for all signs
     print("\n🎭 Generating content for all zodiac signs...")
     all_content = {}
-    all_segments = []
     
     for sign in config['zodiac_signs']:
         content = generate_daily_content(sign)
         all_content[sign] = content
-        
-        # Create video segment
-        segment = create_sign_segment(
-            sign,
-            content,
-            config['platforms']['youtube']['long_form']['resolution']
-        )
-        all_segments.append(segment)
     
-    # Create 1 BIG YouTube video (all signs)
+    # Create ONLY 12 YouTube Shorts (skip long video for now)
     print("\n" + "=" * 60)
-    print("📺 CREATING YOUTUBE VIDEOS")
+    print("📱 CREATING YOUTUBE SHORTS ONLY")
     print("=" * 60)
-    youtube_long_video = create_youtube_long_video(all_segments)
-    
-    # Create 12 YouTube Shorts (one per sign, under 59 seconds)
     youtube_shorts = create_youtube_shorts(all_content)
     
     # Save metadata
     metadata = {
         'date': datetime.now().strftime('%Y-%m-%d'),
-        'youtube_long_video': youtube_long_video,
         'youtube_shorts': youtube_shorts,
         'content': all_content
     }
@@ -636,16 +650,16 @@ def main():
         json.dump(metadata, f, indent=2)
     
     print("\n" + "=" * 60)
-    print("✅ ALL VIDEOS GENERATED SUCCESSFULLY!")
+    print("✅ ALL SHORTS GENERATED SUCCESSFULLY!")
     print("=" * 60)
-    print(f"📁 Output folder: {config['video']['output_folder']}/")
-    print(f"\n📺 YOUTUBE LONG VIDEO (40 mins):")
-    print(f"   {youtube_long_video}")
+    print(f"📁 Output folder: {config['video']['output_folder']}/youtube_shorts/")
     print(f"\n📱 YOUTUBE SHORTS (12 videos, <59 sec each):")
     for i, short in enumerate(youtube_shorts, 1):
-        print(f"   {i}. {os.path.basename(short)}")
-    print("\n🚀 Ready for upload!")
+        sign = config['zodiac_signs'][i-1]
+        print(f"   {i}. {sign}: {os.path.basename(short)}")
+    print("\n🚀 Ready to upload manually!")
     print("💰 TOTAL COST: $0.00 (100% FREE!)")
+    print("\n📝 TIP: Upload 1-2 shorts per day for consistent growth!")
 
 if __name__ == "__main__":
     main()
