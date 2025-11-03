@@ -19,33 +19,24 @@ platforms:
     long_form:
       resolution: [1920, 1080]  # Full HD Landscape
       fps: 30
-      duration: 2400  # 40 minutes
+      duration: 2400  # 40 minutes (all 12 signs)
+      create: true
     shorts:
       resolution: [1080, 1920]  # Vertical 9:16
       fps: 30
-      duration: 60  # 60 seconds
+      duration: 59  # MUST be under 60 seconds for YouTube Shorts
+      create: true
+      count: 12  # One short per zodiac sign
     auto_upload: false  # Set to true when ready
     
   instagram:
-    enabled: true
-    resolution: [1080, 1920]  # Vertical 9:16
-    fps: 30
-    duration: 90  # 90 seconds max
-    auto_upload: false
+    enabled: false  # Disable to keep it simple
     
   tiktok:
-    enabled: true
-    resolution: [1080, 1920]  # Vertical 9:16
-    fps: 30
-    duration: 60  # 60 seconds
-    auto_upload: false
+    enabled: false  # Disable to keep it simple
     
   twitter:
-    enabled: true
-    resolution: [1280, 720]  # 720p Landscape
-    fps: 30
-    duration: 140  # 2:20 max
-    auto_upload: false
+    enabled: false  # Disable to keep it simple
 
 # Content Timing (for YouTube long-form video)
 timing:
@@ -90,16 +81,16 @@ free_ai:
       Make it 3-4 sentences, engaging and mystical in tone.
       
     wealth: |
-      Generate 3 actionable wealth and financial tips for {sign} for today.
-      Include: investment advice, money mindset, opportunities to watch for.
-      Consider current market conditions: Bitcoin ${btc_price}, Market trend: {market_trend}
-      Format as bullet points. Be specific and practical.
+      Generate 3 practical wealth and financial tips for {sign} for today.
+      Include: money management, investment mindset, and financial opportunities.
+      Make it specific to {sign}'s traits and strengths.
+      Format as 3 separate bullet points.
       
     health: |
       Generate 3 health and wellness tips specifically for {sign} for today.
       Include: physical health, mental wellness, and lifestyle recommendations.
-      Focus on {sign}'s traditional health associations and vulnerabilities.
-      Format as bullet points. Be actionable and caring in tone.
+      Focus on {sign}'s traditional health associations.
+      Format as 3 separate bullet points.
 
 # Text Styling
 text_style:
@@ -203,20 +194,17 @@ apis:
     url: "https://query1.finance.yahoo.com/v8/finance/chart/%5EGSPC"
     timeout: 10
 
-# GitHub Secrets Required (Set these in repo Settings > Secrets and variables > Actions)
-# These will be accessed via environment variables in the workflow
+# GitHub Secrets Required (ALL FREE!)
+# Set these in repo Settings > Secrets and variables > Actions
 secrets_required:
-  - OPENAI_API_KEY           # Your OpenAI API key
-  - YOUTUBE_CLIENT_ID        # YouTube Data API OAuth Client ID
-  - YOUTUBE_CLIENT_SECRET    # YouTube Data API OAuth Client Secret
-  - YOUTUBE_REFRESH_TOKEN    # YouTube OAuth Refresh Token
-  - INSTAGRAM_ACCESS_TOKEN   # Instagram Graph API Access Token
-  - INSTAGRAM_USER_ID        # Instagram Business Account ID
-  - TIKTOK_ACCESS_TOKEN      # TikTok API Access Token
-  - TWITTER_API_KEY          # Twitter API Key
-  - TWITTER_API_SECRET       # Twitter API Secret
-  - TWITTER_ACCESS_TOKEN     # Twitter Access Token
-  - TWITTER_ACCESS_SECRET    # Twitter Access Token Secret
+  - HUGGINGFACE_API_KEY      # FREE from huggingface.co/settings/tokens
+  # OR
+  - GROQ_API_KEY             # FREE from console.groq.com (alternative)
+  
+  # YouTube (optional for auto-upload - free but requires setup)
+  - YOUTUBE_CLIENT_ID        # YouTube Data API OAuth Client ID (FREE)
+  - YOUTUBE_CLIENT_SECRET    # YouTube Data API OAuth Client Secret (FREE)
+  - YOUTUBE_REFRESH_TOKEN    # YouTube OAuth Refresh Token (FREE)
 
 # Upload Settings
 upload_settings:
