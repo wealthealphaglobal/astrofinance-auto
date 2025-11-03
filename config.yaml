@@ -70,7 +70,7 @@ free_ai:
   
   backup_provider: "groq"  # Another free option
   groq_api_url: "https://api.groq.com/openai/v1/chat/completions"
-  groq_model: "mixtral-8x7b-32768"
+  groq_model: "llama-3.3-70b-versatile"  # Updated model (free and powerful!)
   # FREE API key from groq.com
   
   # Prompts for content generation
@@ -184,15 +184,8 @@ metadata:
   twitter:
     text: "🌟 {sign} Daily Forecast\n\n✨ Horoscope\n💰 Wealth Tip\n🏥 Health Tip\n\n{date}\n\n#Horoscope #Astrology #{sign}"
 
-# API Endpoints (for fetching additional data)
-apis:
-  bitcoin:
-    url: "https://api.coindesk.com/v1/bpi/currentprice/USD.json"
-    timeout: 10
-    
-  stock_market:
-    url: "https://query1.finance.yahoo.com/v8/finance/chart/%5EGSPC"
-    timeout: 10
+# API Endpoints (NOT USED - Removed per user request)
+# No Bitcoin or market data APIs needed
 
 # GitHub Secrets Required (ALL FREE!)
 # Set these in repo Settings > Secrets and variables > Actions
