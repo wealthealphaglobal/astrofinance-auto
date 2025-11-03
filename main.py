@@ -13,7 +13,8 @@ import json
 from datetime import datetime
 from gtts import gTTS
 from moviepy.editor import (VideoFileClip, AudioFileClip, CompositeVideoClip, 
-                            ImageClip, concatenate_videoclips, CompositeAudioClip)
+                            ImageClip, concatenate_videoclips, concatenate_audioclips,
+                            CompositeAudioClip)
 from PIL import Image, ImageDraw, ImageFont
 import numpy as np
 
