@@ -48,14 +48,21 @@ jobs:
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install moviepy==1.0.3 gTTS requests Pillow imageio imageio-ffmpeg pyyaml
+          pip install google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client
+          echo "Installed packages:"
+          pip list | grep -E "(moviepy|gTTS|requests|Pillow|imageio|yaml)"
 
       # 7️⃣ Verify installations
       - name: Verify installations
         run: |
+          echo "Checking installations..."
           python -c "import moviepy; print('✅ MoviePy:', moviepy.__version__)"
-          python -c "import yaml; print('✅ PyYAML installed')"
+          python -c "import yaml; print('✅ PyYAML:', yaml.__version__)" || echo "⚠️ PyYAML check failed, trying to install..."
+          pip install pyyaml --force-reinstall
+          python -c "import yaml; print('✅ PyYAML:', yaml.__version__)"
           python -c "from gtts import gTTS; print('✅ gTTS installed')"
+          python -c "from PIL import Image; print('✅ Pillow installed')"
           ffmpeg -version | head -n 1
 
       # 8️⃣ Create placeholder background files (if not in repo)
