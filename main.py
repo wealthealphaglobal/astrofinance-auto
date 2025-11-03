@@ -116,29 +116,11 @@ def get_free_ai_content(prompt, sign, btc_price=None, market_trend=None):
     return None
 
 # ========================================
-# MARKET DATA
+# MARKET DATA (REMOVED - NOT NEEDED)
 # ========================================
 
-def get_bitcoin_price():
-    """Fetch current Bitcoin price"""
-    try:
-        res = requests.get(config['apis']['bitcoin']['url'], timeout=10)
-        return float(res.json()["bpi"]["USD"]["rate_float"])
-    except Exception as e:
-        print(f"⚠️ Bitcoin API error: {e}")
-        return None
-
-def get_market_trend():
-    """Fetch S&P 500 trend"""
-    try:
-        res = requests.get(config['apis']['stock_market']['url'], timeout=10)
-        data = res.json()
-        current = data['chart']['result'][0]['meta']['regularMarketPrice']
-        previous = data['chart']['result'][0]['meta']['previousClose']
-        change = ((current - previous) / previous) * 100
-        return 'bullish' if change > 0 else 'bearish'
-    except:
-        return 'neutral'
+# Bitcoin and market data removed as per user request
+# Wealth tips will be general financial advice instead
 
 # ========================================
 # FALLBACK CONTENT (if ChatGPT unavailable)
