@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-AstroFinance Daily - Automated Content Creator
-Generates daily horoscope videos with wealth & health tips for all platforms
+AstroFinance Daily - FREE Automated Content Creator
+Generates daily horoscope videos with wealth & health tips
+100% FREE - No paid APIs needed!
 """
 
 import os
@@ -33,29 +34,24 @@ GROQ_API_KEY = os.getenv('GROQ_API_KEY', '')
 # FREE AI INTEGRATION (HuggingFace or Groq)
 # ========================================
 
-def get_free_ai_content(prompt, sign, btc_price=None, market_trend=None):
+def get_free_ai_content(prompt, sign):
     """Fetch content from FREE AI APIs (HuggingFace or Groq)"""
     
     # Format prompt with variables
-    formatted_prompt = prompt.format(
-        sign=sign,
-        btc_price=btc_price or "N/A",
-        market_trend=market_trend or "neutral"
-    )
+    formatted_prompt = prompt.format(sign=sign)
     
     # Try HuggingFace first (completely free!)
     if HUGGINGFACE_API_KEY:
         try:
             print(f"  🤖 Using HuggingFace AI (FREE)...")
             headers = {
-                "Authorization": f"Bearer {HUGGINGFACE_API_KEY}",
-                "Content-Type": "application/json"
+                "Authorization": f"Bearer {HUGGINGFACE_API_KEY}"
             }
             
-            data = {
+            payload = {
                 "inputs": formatted_prompt,
                 "parameters": {
-                    "max_new_tokens": 300,
+                    "max_new_tokens": 250,
                     "temperature": 0.7,
                     "top_p": 0.9,
                     "return_full_text": False
@@ -65,16 +61,19 @@ def get_free_ai_content(prompt, sign, btc_price=None, market_trend=None):
             response = requests.post(
                 config['free_ai']['api_url'],
                 headers=headers,
-                json=data,
+                json=payload,
                 timeout=30
             )
             
             if response.status_code == 200:
                 result = response.json()
                 if isinstance(result, list) and len(result) > 0:
-                    return result[0].get('generated_text', '').strip()
+                    generated = result[0].get('generated_text', '')
+                    if generated:
+                        return generated.strip()
+                print(f"  ⚠️ HuggingFace unexpected response format")
             else:
-                print(f"  ⚠️ HuggingFace error: {response.status_code}")
+                print(f"  ⚠️ HuggingFace error {response.status_code}: {response.text[:100]}")
         except Exception as e:
             print(f"  ⚠️ HuggingFace failed: {e}")
     
@@ -94,7 +93,7 @@ def get_free_ai_content(prompt, sign, btc_price=None, market_trend=None):
                     {"role": "user", "content": formatted_prompt}
                 ],
                 "temperature": 0.7,
-                "max_tokens": 300
+                "max_tokens": 250
             }
             
             response = requests.post(
@@ -107,23 +106,16 @@ def get_free_ai_content(prompt, sign, btc_price=None, market_trend=None):
             if response.status_code == 200:
                 return response.json()['choices'][0]['message']['content'].strip()
             else:
-                print(f"  ⚠️ Groq error: {response.status_code}")
+                print(f"  ⚠️ Groq error {response.status_code}: {response.text[:100]}")
         except Exception as e:
             print(f"  ⚠️ Groq failed: {e}")
     
     # No API keys available
-    print(f"  ⚠️ No AI API keys configured. Using fallback content.")
+    print(f"  ⚠️ Using fallback content (no AI API available)")
     return None
 
 # ========================================
-# MARKET DATA (REMOVED - NOT NEEDED)
-# ========================================
-
-# Bitcoin and market data removed as per user request
-# Wealth tips will be general financial advice instead
-
-# ========================================
-# FALLBACK CONTENT (if ChatGPT unavailable)
+# FALLBACK CONTENT (if AI unavailable)
 # ========================================
 
 FALLBACK_HOROSCOPES = {
@@ -143,25 +135,149 @@ FALLBACK_HOROSCOPES = {
 
 def get_fallback_wealth_tips(sign):
     """Generate basic wealth tips"""
-    return [
-        f"{sign}, focus on long-term investment strategies today.",
-        "Diversify your portfolio to manage risk effectively.",
-        "Review your budget and identify areas for savings."
-    ]
+    tips = {
+        'Aries': [
+            "Take calculated risks in your investments today.",
+            "Your bold approach can lead to financial gains - trust your instincts.",
+            "Consider starting that side project you've been thinking about."
+        ],
+        'Taurus': [
+            "Focus on building long-term financial security.",
+            "Review your savings strategy and look for better interest rates.",
+            "Patient investing pays off - avoid get-rich-quick schemes."
+        ],
+        'Gemini': [
+            "Diversify your income streams to maximize earnings.",
+            "Network with financial experts to gain new insights.",
+            "Stay informed but avoid information overload when making decisions."
+        ],
+        'Cancer': [
+            "Real estate or family business investments look favorable.",
+            "Trust your emotional intelligence when evaluating opportunities.",
+            "Secure your financial future by planning for loved ones."
+        ],
+        'Leo': [
+            "Invest in yourself - education and skills pay dividends.",
+            "Your confidence attracts lucrative opportunities.",
+            "Consider leadership roles or entrepreneurship for wealth building."
+        ],
+        'Virgo': [
+            "Your analytical skills help identify undervalued assets.",
+            "Create detailed budgets and stick to systematic saving plans.",
+            "Research thoroughly before making any financial commitment."
+        ],
+        'Libra': [
+            "Balance growth investments with stable income sources.",
+            "Partner with financially savvy people for mutual benefit.",
+            "Aesthetic businesses or beauty industry investments may prosper."
+        ],
+        'Scorpio': [
+            "Deep research uncovers hidden investment opportunities.",
+            "Your intensity serves long-term wealth accumulation.",
+            "Transform your financial situation through strategic planning."
+        ],
+        'Sagittarius': [
+            "International markets or foreign investments look promising.",
+            "Expand your financial horizons through education and travel.",
+            "Optimism is good, but due diligence is essential."
+        ],
+        'Capricorn': [
+            "Your disciplined approach builds substantial wealth over time.",
+            "Focus on traditional, proven investment strategies.",
+            "Professional advancement leads to increased earning potential."
+        ],
+        'Aquarius': [
+            "Innovative technologies and emerging markets offer opportunities.",
+            "Think unconventionally about income generation.",
+            "Community-based or socially responsible investments align with your values."
+        ],
+        'Pisces': [
+            "Trust your intuition but verify with financial facts.",
+            "Creative pursuits can become profitable ventures.",
+            "Compassionate businesses or healing industries may reward you."
+        ]
+    }
+    return tips.get(sign, [
+        "Focus on building emergency savings today.",
+        "Review your spending habits and identify areas to cut costs.",
+        "Consider consulting a financial advisor for personalized guidance."
+    ])
 
 def get_fallback_health_tips(sign):
     """Generate basic health tips"""
-    return [
-        f"{sign}, prioritize 8 hours of quality sleep tonight.",
-        "Stay hydrated with at least 8 glasses of water today.",
-        "Take short breaks every hour to stretch and move."
-    ]
+    tips = {
+        'Aries': [
+            "Channel high energy with cardio or competitive sports.",
+            "Watch stress levels - practice breathing exercises.",
+            "Protect your head and take breaks from screen time."
+        ],
+        'Taurus': [
+            "Try gentle yoga or stretching for neck and throat health.",
+            "Enjoy good food but maintain balanced portions.",
+            "Spend time in nature to ground yourself."
+        ],
+        'Gemini': [
+            "Calm your active mind with meditation or journaling.",
+            "Practice deep breathing exercises for lung health.",
+            "Vary your workout routine to stay engaged."
+        ],
+        'Cancer': [
+            "Support digestive health with mindful eating habits.",
+            "Process emotions healthily - talk to someone you trust.",
+            "Swimming or water activities soothe your soul."
+        ],
+        'Leo': [
+            "Protect heart health with cardio exercise.",
+            "Practice good posture to support your spine.",
+            "Rest is productive - avoid burnout."
+        ],
+        'Virgo': [
+            "Support digestive health with probiotics and fiber.",
+            "Practice self-compassion to reduce stress.",
+            "Create healthy routines with built-in flexibility."
+        ],
+        'Libra': [
+            "Drink plenty of water for kidney health.",
+            "Find balance in exercise - not too much or too little.",
+            "Partner workouts keep you motivated."
+        ],
+        'Scorpio': [
+            "Release intensity through boxing or vigorous exercise.",
+            "Honor your body's need for transformation and rest.",
+            "Stay hydrated and support elimination processes."
+        ],
+        'Sagittarius': [
+            "Stretch regularly to protect hips and thighs.",
+            "Enjoy outdoor activities and hiking.",
+            "Warm up properly before physical activities."
+        ],
+        'Capricorn': [
+            "Include calcium and vitamin D for bone health.",
+            "Your discipline serves fitness - maintain consistency.",
+            "Schedule rest days for muscle recovery."
+        ],
+        'Aquarius': [
+            "Keep circulation healthy by moving throughout the day.",
+            "Try unique workouts that interest you.",
+            "Group fitness classes match your social nature."
+        ],
+        'Pisces': [
+            "Care for your feet with comfortable, supportive shoes.",
+            "Water activities and swimming restore you.",
+            "Try gentle exercise like tai chi or yoga."
+        ]
+    }
+    return tips.get(sign, [
+        "Aim for 8 hours of quality sleep tonight.",
+        "Stay hydrated with at least 8 glasses of water.",
+        "Take short breaks to stretch and move."
+    ])
 
 # ========================================
 # CONTENT GENERATION
 # ========================================
 
-def generate_daily_content(sign, btc_price, market_trend):
+def generate_daily_content(sign):
     """Generate all content for one zodiac sign using FREE AI"""
     print(f"\n✨ Generating content for {sign}...")
     
@@ -174,13 +290,11 @@ def generate_daily_content(sign, btc_price, market_trend):
     # Get wealth tips
     wealth_tips_raw = get_free_ai_content(
         config['free_ai']['prompts']['wealth'],
-        sign,
-        btc_price,
-        market_trend
+        sign
     )
     
     if wealth_tips_raw:
-        wealth_tips = [tip.strip('• -').strip() for tip in wealth_tips_raw.split('\n') if tip.strip()]
+        wealth_tips = [tip.strip('• -*').strip() for tip in wealth_tips_raw.split('\n') if tip.strip() and len(tip.strip()) > 10]
     else:
         wealth_tips = get_fallback_wealth_tips(sign)
     
@@ -191,7 +305,7 @@ def generate_daily_content(sign, btc_price, market_trend):
     )
     
     if health_tips_raw:
-        health_tips = [tip.strip('• -').strip() for tip in health_tips_raw.split('\n') if tip.strip()]
+        health_tips = [tip.strip('• -*').strip() for tip in health_tips_raw.split('\n') if tip.strip() and len(tip.strip()) > 10]
     else:
         health_tips = get_fallback_health_tips(sign)
     
@@ -242,9 +356,9 @@ def create_text_image(text, width, height, fontsize, wrap=True):
             x = (width - text_width) // 2
             
             # Draw shadow
-            draw.text((x + 2, y_offset + 2), line, font=font, fill=tuple(config['text_style']['shadow_color']))
+            draw.text((x + 2, y_offset + 2), line, font=font, fill=(0, 0, 0, 255))
             # Draw text
-            draw.text((x, y_offset), line, font=font, fill=tuple(config['text_style']['font_color']))
+            draw.text((x, y_offset), line, font=font, fill=tuple(config['text_style']['font_color'] + [255]))
             y_offset += fontsize + 15
     else:
         bbox = draw.textbbox((0, 0), text, font=font)
@@ -254,9 +368,9 @@ def create_text_image(text, width, height, fontsize, wrap=True):
         y = (height - text_height) // 2
         
         # Draw shadow
-        draw.text((x + 2, y + 2), text, font=font, fill=tuple(config['text_style']['shadow_color']))
+        draw.text((x + 2, y + 2), text, font=font, fill=(0, 0, 0, 255))
         # Draw text
-        draw.text((x, y), text, font=font, fill=tuple(config['text_style']['font_color']))
+        draw.text((x, y), text, font=font, fill=tuple(config['text_style']['font_color'] + [255]))
     
     return np.array(img)
 
@@ -373,7 +487,9 @@ def create_youtube_long_video(all_segments):
     final_video = CompositeVideoClip([final_video, watermark])
     
     # Export
-    output_path = f"{config['video']['output_folder']}/youtube/daily_horoscope_{datetime.now().strftime('%Y%m%d')}.mp4"
+    output_folder = f"{config['video']['output_folder']}/youtube"
+    os.makedirs(output_folder, exist_ok=True)
+    output_path = f"{output_folder}/daily_horoscope_{datetime.now().strftime('%Y%m%d')}.mp4"
     print(f"  💾 Exporting to {output_path}...")
     
     final_video.write_videofile(
@@ -382,7 +498,8 @@ def create_youtube_long_video(all_segments):
         codec='libx264',
         audio_codec='aac',
         preset='medium',
-        threads=4
+        threads=4,
+        logger=None
     )
     
     print(f"  ✅ YouTube video complete! Duration: {final_video.duration/60:.1f} minutes")
@@ -404,8 +521,7 @@ def create_youtube_shorts(all_content):
         print(f"\n  Creating short for {sign}...")
         
         # Condense content to fit in 59 seconds
-        # Keep it short and punchy!
-        short_horoscope = content['horoscope'][:120]  # Truncate if too long
+        short_horoscope = content['horoscope'][:120]
         short_wealth = content['wealth_tips'][0][:80] if content['wealth_tips'] else "Stay financially wise today."
         short_health = content['health_tips'][0][:80] if content['health_tips'] else "Take care of your health."
         
@@ -420,7 +536,7 @@ def create_youtube_shorts(all_content):
         text_to_speech(short_speech, audio_file)
         audio_clip = AudioFileClip(audio_file)
         
-        # CRITICAL: Limit to 58 seconds to be safe (YouTube Shorts must be under 60)
+        # CRITICAL: Limit to 58 seconds to be safe
         max_duration = 58
         if audio_clip.duration > max_duration:
             audio_clip = audio_clip.subclip(0, max_duration)
@@ -444,7 +560,8 @@ def create_youtube_shorts(all_content):
             fps=config['platforms']['youtube']['shorts']['fps'],
             codec='libx264',
             audio_codec='aac',
-            preset='ultrafast'
+            preset='ultrafast',
+            logger=None
         )
         
         short_videos.append(output_path)
@@ -480,22 +597,13 @@ def main():
     else:
         print(f"⚠️ No AI API configured - using fallback content")
     
-    # Get market data
-    print("\n📊 Fetching market data...")
-    btc_price = get_bitcoin_price()
-    market_trend = get_market_trend()
-    
-    if btc_price:
-        print(f"  ₿ Bitcoin: ${btc_price:,.2f}")
-    print(f"  📈 Market: {market_trend}")
-    
     # Generate content for all signs
     print("\n🎭 Generating content for all zodiac signs...")
     all_content = {}
     all_segments = []
     
     for sign in config['zodiac_signs']:
-        content = generate_daily_content(sign, btc_price, market_trend)
+        content = generate_daily_content(sign)
         all_content[sign] = content
         
         # Create video segment
@@ -515,7 +623,7 @@ def main():
     # Create 12 YouTube Shorts (one per sign, under 59 seconds)
     youtube_shorts = create_youtube_shorts(all_content)
     
-    # Save metadata for uploading
+    # Save metadata
     metadata = {
         'date': datetime.now().strftime('%Y-%m-%d'),
         'youtube_long_video': youtube_long_video,
