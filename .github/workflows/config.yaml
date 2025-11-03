@@ -62,16 +62,22 @@ zodiac_signs:
 
 # Free AI Content Generation
 free_ai:
-  # Using free alternatives to ChatGPT
-  provider: "huggingface"  # Free API with generous limits
-  api_url: "https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1"
+  # Using HuggingFace's NEW Inference Router (Nov 2025+)
+  provider: "huggingface"
+  
+  # Primary: DeepSeek (Excellent and FREE!)
+  api_url: "https://router.huggingface.co/hf-inference/models/deepseek-ai/DeepSeek-V3"
   # API key is FREE from huggingface.co - set in GitHub Secrets as HUGGINGFACE_API_KEY
   # Get it from: https://huggingface.co/settings/tokens (completely free!)
   
-  backup_provider: "groq"  # Another free option
+  # Backup 1: OpenAI models via HuggingFace router (also free!)
+  openai_url: "https://router.huggingface.co/hf-inference/models/openai-community/gpt2-large"
+  
+  # Backup 2: Groq (independent provider)
+  backup_provider: "groq"
   groq_api_url: "https://api.groq.com/openai/v1/chat/completions"
-  groq_model: "llama-3.3-70b-versatile"  # Updated model (free and powerful!)
-  # FREE API key from groq.com
+  groq_model: "llama-3.3-70b-versatile"
+  # FREE API key from console.groq.com
   
   # Prompts for content generation
   prompts:
