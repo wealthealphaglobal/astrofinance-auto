@@ -1,148 +1,93 @@
 import os
 import datetime
-import yaml
 from moviepy.editor import VideoFileClip, TextClip, CompositeVideoClip, concatenate_videoclips, AudioFileClip
-from time import sleep
-import random
+import yaml
+import time
 
-# ===============================
+# ==========================
 # Load config
-# ===============================
+# ==========================
 with open("config.yaml", "r") as f:
-    config = yaml.safe_load(f)
+    CONFIG = yaml.safe_load(f)
 
-VIDEO_CONFIG = config['video']
-TEXT_STYLE = config['text_style']
-ZODIAC_SIGNS = config['zodiac_signs']
-FREE_AI = config['free_ai']
-BRANDING = config['branding']
+VIDEO_CONFIG = CONFIG['video']
+TEXT_STYLE = CONFIG['text_style']
+ZODIAC_SIGNS = CONFIG['zodiac_signs']
+FREE_AI = CONFIG['free_ai']
+BRANDING = CONFIG['branding']
 
-# Colors for each section
-SECTION_COLORS = {
-    'horoscope': (255, 215, 0),  # Gold
-    'wealth': (0, 255, 0),       # Green
-    'health': (30, 144, 255)     # Blue
-}
+# ==========================
+# Helper: RGB to HEX
+# ==========================
+def rgb_to_hex(rgb):
+    return '#%02x%02x%02x' % tuple(rgb)
 
-# ===============================
-# Dummy content generator (replace with HuggingFace/AI calls)
-# ===============================
-def generate_content(sign):
-    """Simulate AI-generated horoscope, wealth, health content"""
-    horoscope = [
-        f"{sign} today is full of cosmic energy.",
-        "Focus on personal growth and self-awareness.",
-        "Opportunities in relationships and career are present.",
-        "Trust your intuition and take bold steps."
-    ]
-    wealth = [
-        "Track your expenses carefully today.",
-        "Look for small investment opportunities.",
-        "Avoid impulsive spending decisions."
-    ]
-    health = [
-        "Meditate for at least 10 minutes today.",
-        "Drink plenty of water and eat fresh fruits.",
-        "Take a short walk to refresh your mind."
-    ]
-    return horoscope, wealth, health
-
-# ===============================
-# Helper function: create animated text clip
-# ===============================
-def create_text_clip(text, font_size, color, duration, screen_size):
-    """Create a TextClip with fade-in/out effect"""
+# ==========================
+# Helper: create text clip
+# ==========================
+def create_text_clip(text, font_size, duration, screen_size, color=None):
     txt_clip = TextClip(
         txt=text,
         fontsize=font_size,
-        color=color,
-        font='Arial-Bold',
-        stroke_color=TEXT_STYLE['shadow_color'],
+        color=rgb_to_hex(color) if color else "#FFFFFF",
+        font="DejaVu-Sans-Bold",
+        stroke_color=rgb_to_hex(TEXT_STYLE['shadow_color']),
         stroke_width=2,
         method='caption',
-        size=(int(screen_size[0]*0.8), None)  # 80% width
-    ).set_duration(duration).fadein(0.5).fadeout(0.5)
-    return txt_clip.set_position(('center', 'center'))
+        size=(int(screen_size[0]*0.8), None)
+    ).set_duration(duration).set_position('center')
+    return txt_clip
 
-# ===============================
-# Create a short video for one zodiac sign
-# ===============================
+# ==========================
+# Helper: generate content (stub)
+# ==========================
+def generate_content(sign):
+    # Replace with actual API calls
+    today = datetime.date.today().strftime("%d %b %Y")
+    horoscope = f"{sign} Daily Horoscope: You will find clarity today. Cosmic energy is high."
+    wealth = f"💰 Wealth Tips for {sign}:\n1. Save wisely\n2. Invest carefully\n3. Avoid impulsive spending"
+    health = f"🏥 Health Tips for {sign}:\n1. Exercise daily\n2. Eat nutritious meals\n3. Meditate"
+    return today, horoscope, wealth, health
+
+# ==========================
+# Create one short video per sign
+# ==========================
 def create_short(sign):
-    print(f"▶️ Processing {sign}...")
+    print(f"⏳ Starting {sign} short...")
+    screen_size = VIDEO_CONFIG['shorts']['resolution']
+    bg_clip = VideoFileClip(VIDEO_CONFIG['background_video']).resize(height=screen_size[1])
 
-    # 1. Load background video
-    bg_clip = VideoFileClip(VIDEO_CONFIG['background_video']).subclip(0, VIDEO_CONFIG['shorts_duration'])
-    screen_size = bg_clip.size
-
-    # 2. Load background music
-    if VIDEO_CONFIG['background_music']:
-        audio_clip = AudioFileClip(VIDEO_CONFIG['background_music']).volumex(VIDEO_CONFIG['music_volume'])
-        bg_clip = bg_clip.set_audio(audio_clip)
-
-    # 3. Generate content
-    horoscope, wealth, health = generate_content(sign)
-    all_sections = [
-        ('horoscope', horoscope),
-        ('wealth', wealth),
-        ('health', health)
-    ]
+    today, horoscope_text, wealth_text, health_text = generate_content(sign)
 
     clips = []
 
-    # Add title and date
-    date_str = datetime.datetime.now().strftime("%B %d, %Y")
-    title_clip = create_text_clip(
-        text=f"{BRANDING['channel_name']}\n{sign} | {date_str}",
-        font_size=TEXT_STYLE['title_font_size'],
-        color=(255, 255, 255),
-        duration=3,
-        screen_size=screen_size
-    )
+    # Title & Date
+    title_clip = create_text_clip(f"{sign} Daily Forecast\n{today}", TEXT_STYLE['title_font_size'], 3, screen_size, TEXT_STYLE['font_color'])
     clips.append(title_clip)
 
-    # Loop through sections
-    for section_name, sentences in all_sections:
-        color = SECTION_COLORS[section_name]
-        for sentence in sentences:
-            txt_clip = create_text_clip(
-                text=sentence,
-                font_size=TEXT_STYLE['content_font_size'],
-                color=color,
-                duration=3,  # each sentence 3 seconds
-                screen_size=screen_size
-            )
-            clips.append(txt_clip)
+    # Horoscope
+    clips.append(create_text_clip(horoscope_text, TEXT_STYLE['content_font_size'], 5, screen_size, TEXT_STYLE['font_color']))
 
-    # Branding / outro
-    outro_clip = create_text_clip(
-        text=f"{BRANDING['watermark_text']}",
-        font_size=TEXT_STYLE['tip_font_size'],
-        color=(255, 255, 255),
-        duration=3,
-        screen_size=screen_size
-    )
-    clips.append(outro_clip)
+    # Wealth
+    clips.append(create_text_clip(wealth_text, TEXT_STYLE['tip_font_size'], 5, screen_size, TEXT_STYLE['font_color']))
 
-    # Composite each clip over background
-    final_clips = [CompositeVideoClip([bg_clip, clip]) for clip in clips]
+    # Health
+    clips.append(create_text_clip(health_text, TEXT_STYLE['tip_font_size'], 5, screen_size, TEXT_STYLE['font_color']))
 
-    # Concatenate
-    final_video = concatenate_videoclips(final_clips)
+    final_clip = CompositeVideoClip([bg_clip.set_duration(sum(c.duration for c in clips))])
+    final_clip = concatenate_videoclips(clips).set_audio(AudioFileClip(VIDEO_CONFIG['background_music']).volumex(VIDEO_CONFIG['music_volume']))
 
-    # Save
     output_path = os.path.join(VIDEO_CONFIG['output_folder'], f"{sign}_short.mp4")
     os.makedirs(VIDEO_CONFIG['output_folder'], exist_ok=True)
-    final_video.write_videofile(output_path, fps=VIDEO_CONFIG['shorts']['fps'], codec='libx264', audio_codec='aac')
+    final_clip.write_videofile(output_path, fps=VIDEO_CONFIG['shorts']['fps'])
+    print(f"✅ Completed {sign} short: {output_path}")
 
-    print(f"✅ {sign} completed!")
-
-# ===============================
-# Main loop
-# ===============================
+# ==========================
+# Main
+# ==========================
 def main():
     for sign in ZODIAC_SIGNS:
         create_short(sign)
-        sleep(1)  # tiny pause
 
 if __name__ == "__main__":
     main()
