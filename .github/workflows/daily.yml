@@ -65,34 +65,39 @@ jobs:
           python -c "from PIL import Image; print('✅ Pillow installed')"
           ffmpeg -version | head -n 1
 
-      # 8️⃣ Create placeholder background files (if not in repo)
-      - name: Create placeholder media files
+      # 8️⃣ Verify media files exist
+      - name: Check media files
         run: |
-          # Create background video if it doesn't exist
-          if [ ! -f "background.mp4" ]; then
-            echo "Creating placeholder background video..."
+          echo "Checking for required media files..."
+          
+          if [ -f "background.mp4" ]; then
+            echo "✅ background.mp4 found"
+            ls -lh background.mp4
+          else
+            echo "⚠️ background.mp4 NOT found! Creating placeholder..."
             python -c "
           from moviepy.editor import ColorClip
-          import numpy as np
-          # Create a gradient background
-          clip = ColorClip(size=(1920, 1080), color=(20, 20, 60), duration=60)
+          clip = ColorClip(size=(1080, 1920), color=(10, 10, 40), duration=60)
           clip.write_videofile('background.mp4', fps=30, codec='libx264', audio=False, logger=None)
-          print('✅ Background video created')
+          print('✅ Placeholder background created')
             "
           fi
           
-          # Create placeholder OM Mantra audio if it doesn't exist
-          if [ ! -f "om_mantra.mp3" ]; then
-            echo "⚠️ om_mantra.mp3 not found. Please add your OM Mantra audio file."
-            echo "Creating silent placeholder..."
+          if [ -f "om_mantra.mp3" ]; then
+            echo "✅ om_mantra.mp3 found"
+            ls -lh om_mantra.mp3
+          else
+            echo "⚠️ om_mantra.mp3 NOT found! Creating silent placeholder..."
             python -c "
           from moviepy.editor import AudioClip
-          import numpy as np
-          # Create 5 minutes of silence as placeholder
           audio = AudioClip(lambda t: 0, duration=300, fps=44100)
           audio.write_audiofile('om_mantra.mp3', logger=None)
+          print('⚠️ Replace with real OM Mantra audio for better videos!')
             "
           fi
+          
+          echo ""
+          echo "📁 All media files ready!"
 
       # 9️⃣ Generate videos
       - name: Generate daily content
