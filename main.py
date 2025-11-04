@@ -5,7 +5,7 @@ import yaml
 from moviepy.editor import VideoFileClip, TextClip, CompositeVideoClip, concatenate_videoclips
 
 # Load config
-with open("config.yml", "r") as f:
+with open("config.yaml", "r") as f:
     CONFIG = yaml.safe_load(f)
 
 VIDEO_CONFIG = CONFIG['video']
