@@ -379,9 +379,9 @@ def extract_tips(text):
     # Clean the text first
     text = clean_ai_response(text)
     
-    # Look for Do/Don't patterns
-    do_pattern = r'(?:Do[:\s]+)(.*?)(?=Don\'t|Don't|$)'
-    dont_pattern = r'(?:Don\'t|Don't[:\s]+)(.*?)(?=$)'
+    # Look for Do/Don't patterns (fixed escaping)
+    do_pattern = r"(?:Do[:\s]+)(.*?)(?=Don't|Don't|$)"
+    dont_pattern = r"(?:Don't|Don't[:\s]+)(.*?)(?=$)"
     
     do_match = re.search(do_pattern, text, re.IGNORECASE | re.DOTALL)
     dont_match = re.search(dont_pattern, text, re.IGNORECASE | re.DOTALL)
