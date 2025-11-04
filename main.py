@@ -11,12 +11,12 @@ import yaml
 import requests
 import json
 from datetime import datetime
-from gtts import gTTS
 from moviepy.editor import (VideoFileClip, AudioFileClip, CompositeVideoClip, 
                             ImageClip, concatenate_videoclips, concatenate_audioclips,
                             CompositeAudioClip)
 from PIL import Image, ImageDraw, ImageFont
 import numpy as np
+import re  # For text cleaning
 
 # Load configuration
 print("📋 Loading configuration...")
@@ -303,10 +303,16 @@ def generate_daily_content(sign):
     print(f"\n✨ Generating content for {sign}...")
     
     # Get horoscope
-    horoscope = get_free_ai_content(
+    horoscope_raw = get_free_ai_content(
         config['free_ai']['prompts']['horoscope'],
         sign
-    ) or FALLBACK_HOROSCOPES.get(sign, "The stars align favorably for you today.")
+    )
+    
+    # Clean up AI response - remove junk characters and format nicely
+    if horoscope_raw:
+        horoscope = clean_ai_response(horoscope_raw)
+    else:
+        horoscope = FALLBACK_HOROSCOPES.get(sign, "The stars align favorably for you today.")
     
     # Get wealth tips
     wealth_tips_raw = get_free_ai_content(
@@ -315,7 +321,7 @@ def generate_daily_content(sign):
     )
     
     if wealth_tips_raw:
-        wealth_tips = [tip.strip('• -*').strip() for tip in wealth_tips_raw.split('\n') if tip.strip() and len(tip.strip()) > 10]
+        wealth_tips = extract_tips(wealth_tips_raw)
     else:
         wealth_tips = get_fallback_wealth_tips(sign)
     
@@ -326,15 +332,61 @@ def generate_daily_content(sign):
     )
     
     if health_tips_raw:
-        health_tips = [tip.strip('• -*').strip() for tip in health_tips_raw.split('\n') if tip.strip() and len(tip.strip()) > 10]
+        health_tips = extract_tips(health_tips_raw)
     else:
         health_tips = get_fallback_health_tips(sign)
     
+    # Show what we got
+    print(f"  📝 Horoscope: {horoscope[:60]}...")
+    print(f"  💰 Wealth tips: {len(wealth_tips)} tips")
+    print(f"  🏥 Health tips: {len(health_tips)} tips")
+    
     return {
         'horoscope': horoscope,
-        'wealth_tips': wealth_tips[:3],  # Limit to 3 tips
-        'health_tips': health_tips[:3]   # Limit to 3 tips
+        'wealth_tips': wealth_tips[:3],
+        'health_tips': health_tips[:3]
     }
+
+def clean_ai_response(text):
+    """Clean up AI response - remove junk, special chars, make readable"""
+    import re
+    
+    # Remove common junk patterns
+    text = re.sub(r'\*\*', '', text)  # Remove ** markdown
+    text = re.sub(r'__', '', text)  # Remove __ markdown
+    text = re.sub(r'\[.*?\]', '', text)  # Remove [tags]
+    text = re.sub(r'\{.*?\}', '', text)  # Remove {tags}
+    text = re.sub(r'<.*?>', '', text)  # Remove <tags>
+    text = re.sub(r'#{1,6}\s', '', text)  # Remove # headers
+    text = re.sub(r'\s+', ' ', text)  # Multiple spaces to single
+    
+    # Remove common prefixes
+    text = re.sub(r'^(Here is|Here\'s|Today\'s horoscope:|Horoscope:)\s*', '', text, flags=re.IGNORECASE)
+    
+    # Clean and trim
+    text = text.strip()
+    
+    # Ensure proper sentence ending
+    if text and text[-1] not in '.!?':
+        text += '.'
+    
+    return text
+
+def extract_tips(text):
+    """Extract clean tips from AI response"""
+    import re
+    
+    # Split by common delimiters
+    lines = re.split(r'[\n\r•\-*]+', text)
+    
+    tips = []
+    for line in lines:
+        line = clean_ai_response(line)
+        # Only keep substantial tips (more than 15 chars, less than 150)
+        if 15 < len(line) < 150 and not line.lower().startswith(('here', 'tip', 'advice')):
+            tips.append(line)
+    
+    return tips if tips else ["Stay positive and focused on your goals today."]
 
 # ========================================
 # VIDEO CREATION - SHORTS ONLY
@@ -396,9 +448,13 @@ def create_text_image(text, width, height, fontsize, wrap=True):
     return np.array(img)
 
 def text_to_speech(text, filename):
-    """Convert text to speech"""
-    tts = gTTS(text, lang='en', slow=False)
-    tts.save(filename)
+    """Convert text to speech - DISABLED (no voice-over needed)"""
+    # Voice-over removed per user request
+    # Create silent audio instead
+    from moviepy.editor import AudioClip
+    duration = max(5, len(text) / 20)  # Estimate: ~20 chars per second reading
+    silent_audio = AudioClip(lambda t: 0, duration=duration, fps=44100)
+    silent_audio.write_audiofile(filename, logger=None)
     return filename
 
 def create_sign_segment(sign, content, resolution):
@@ -527,11 +583,23 @@ def create_youtube_long_video(all_segments):
     return output_path
 
 def create_youtube_shorts(all_content):
-    """Create 12 YouTube Shorts (one per zodiac sign, under 59 seconds)"""
-    print("\n📱 Creating 12 YouTube Shorts (under 59 seconds each)...")
+    """Create 12 YouTube Shorts - Background video + Text overlay + OM Mantra"""
+    print("\n📱 Creating 12 YouTube Shorts with background video + OM Mantra...")
     
     shorts_folder = f"{config['video']['output_folder']}/youtube_shorts"
     os.makedirs(shorts_folder, exist_ok=True)
+    
+    # Check if background files exist
+    bg_video_path = config['video']['background_video']
+    bg_music_path = config['video']['background_music']
+    
+    if not os.path.exists(bg_video_path):
+        print(f"  ⚠️ WARNING: {bg_video_path} not found! Please add your background video.")
+        print(f"  Creating placeholder background...")
+        # Create simple color background as fallback
+        from moviepy.editor import ColorClip
+        bg_clip = ColorClip(size=(1080, 1920), color=(20, 20, 60), duration=60)
+        bg_clip.write_videofile(bg_video_path, fps=30, logger=None)
     
     short_videos = []
     resolution = config['platforms']['youtube']['shorts']['resolution']
@@ -541,66 +609,82 @@ def create_youtube_shorts(all_content):
         
         print(f"\n  Creating short for {sign}...")
         
-        # Condense content to fit in 59 seconds
-        short_horoscope = content['horoscope'][:120]
-        short_wealth = content['wealth_tips'][0][:80] if content['wealth_tips'] else "Stay financially wise today."
-        short_health = content['health_tips'][0][:80] if content['health_tips'] else "Take care of your health."
+        # Format content for display
+        horoscope = content['horoscope']
+        wealth = content['wealth_tips'][0] if content['wealth_tips'] else "Trust your financial intuition today."
+        health = content['health_tips'][0] if content['health_tips'] else "Balance your energy with mindful breathing."
         
-        # Create condensed text
-        short_text = f"🌟 {sign} 🌟\n\n✨ {short_horoscope}\n\n💰 {short_wealth}\n\n🏥 {short_health}"
+        # Create text overlay
+        text_content = f"🌟 {sign} Daily 🌟\n\n✨ {horoscope}\n\n💰 {wealth}\n\n🏥 {health}"
         
-        # Create speech (keep it brief!)
-        short_speech = f"{sign}. {short_horoscope}. Wealth tip: {short_wealth}. Health tip: {short_health}."
+        # Calculate duration (enough time to read comfortably)
+        words = len(text_content.split())
+        duration = min(max(20, words / 2.5), 58)  # 20-58 seconds
         
-        # Generate audio
-        audio_file = f"{config['video']['temp_folder']}/{sign}_short.mp3"
-        text_to_speech(short_speech, audio_file)
-        audio_clip = AudioFileClip(audio_file)
+        print(f"  ⏱️ Duration: {duration:.1f}s")
         
-        # CRITICAL: Limit to 58 seconds to be safe
-        max_duration = 58
-        if audio_clip.duration > max_duration:
-            audio_clip = audio_clip.subclip(0, max_duration)
+        # Load and prepare background video
+        bg_video = VideoFileClip(bg_video_path)
         
-        duration = audio_clip.duration
+        # Loop or trim background to match duration
+        if bg_video.duration < duration:
+            # Loop the video
+            loops_needed = int(duration / bg_video.duration) + 1
+            bg_video = concatenate_videoclips([bg_video] * loops_needed)
         
-        # Create text image
-        img = create_text_image(short_text, resolution[0], resolution[1], 45)
-        video_clip = ImageClip(img).set_duration(duration).set_audio(audio_clip)
+        bg_video = bg_video.subclip(0, duration)
+        
+        # Resize to shorts format if needed
+        if bg_video.size != (resolution[0], resolution[1]):
+            bg_video = bg_video.resize(newsize=resolution)
+        
+        # Create text overlay
+        text_img = create_text_image(text_content, resolution[0], resolution[1], 45)
+        text_overlay = ImageClip(text_img).set_duration(duration).set_opacity(0.9)
         
         # Add watermark
         watermark_img = create_text_image(config['branding']['watermark_text'], 250, 60, 25, False)
-        watermark = ImageClip(watermark_img).set_duration(duration).set_position(('right', 'top')).set_opacity(0.7)
+        watermark = ImageClip(watermark_img).set_duration(duration).set_position(('right', 'top')).set_opacity(0.6)
         
-        final_clip = CompositeVideoClip([video_clip, watermark])
+        # Composite video with text overlays
+        video_with_text = CompositeVideoClip([bg_video, text_overlay, watermark])
         
-        # Export with GOOD quality settings (balanced speed/quality)
+        # Add OM Mantra background music
+        if os.path.exists(bg_music_path):
+            print(f"  🎵 Adding OM Mantra...")
+            bg_music = AudioFileClip(bg_music_path)
+            bg_music = bg_music.volumex(config['video']['music_volume'])
+            
+            # Loop or trim music to match video
+            if bg_music.duration < duration:
+                loops_needed = int(duration / bg_music.duration) + 1
+                bg_music = concatenate_audioclips([bg_music] * loops_needed)
+            
+            bg_music = bg_music.subclip(0, duration)
+            video_with_text = video_with_text.set_audio(bg_music)
+        else:
+            print(f"  ⚠️ {bg_music_path} not found - creating without music")
+        
+        # Export
         output_path = f"{shorts_folder}/{sign}_{datetime.now().strftime('%Y%m%d')}.mp4"
-        final_clip.write_videofile(
+        video_with_text.write_videofile(
             output_path,
             fps=30,
             codec='libx264',
             audio_codec='aac',
-            bitrate='3000k',  # Good quality (reduced from 5000k for speed)
-            audio_bitrate='128k',  # Good audio (reduced from 192k)
-            preset='medium',  # Balanced (changed from slow for 2x speed)
+            preset='medium',
             threads=4,
             logger=None
         )
         
         short_videos.append(output_path)
-        print(f"  ✅ {sign} short created ({duration:.1f}s) - {output_path}")
+        print(f"  ✅ {sign} short created ({duration:.1f}s)")
         
         # Cleanup
-        audio_clip.close()
-        video_clip.close()
-        final_clip.close()
-        try:
-            os.remove(audio_file)
-        except:
-            pass
+        bg_video.close()
+        video_with_text.close()
     
-    print(f"\n✅ Created {len(short_videos)} YouTube Shorts")
+    print(f"\n✅ Created {len(short_videos)} YouTube Shorts with background + OM Mantra")
     return short_videos
 
 # ========================================
