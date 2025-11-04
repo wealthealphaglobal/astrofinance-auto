@@ -373,20 +373,40 @@ def clean_ai_response(text):
     return text
 
 def extract_tips(text):
-    """Extract clean tips from AI response"""
+    """Extract clean tips from AI response - handle Do/Don't format"""
     import re
     
-    # Split by common delimiters
-    lines = re.split(r'[\n\r•\-*]+', text)
+    # Clean the text first
+    text = clean_ai_response(text)
+    
+    # Look for Do/Don't patterns
+    do_pattern = r'(?:Do[:\s]+)(.*?)(?=Don\'t|Don't|$)'
+    dont_pattern = r'(?:Don\'t|Don't[:\s]+)(.*?)(?=$)'
+    
+    do_match = re.search(do_pattern, text, re.IGNORECASE | re.DOTALL)
+    dont_match = re.search(dont_pattern, text, re.IGNORECASE | re.DOTALL)
     
     tips = []
-    for line in lines:
-        line = clean_ai_response(line)
-        # Only keep substantial tips (more than 15 chars, less than 150)
-        if 15 < len(line) < 150 and not line.lower().startswith(('here', 'tip', 'advice')):
-            tips.append(line)
     
-    return tips if tips else ["Stay positive and focused on your goals today."]
+    if do_match:
+        do_tip = do_match.group(1).strip()
+        if do_tip:
+            tips.append(f"Do: {do_tip}")
+    
+    if dont_match:
+        dont_tip = dont_match.group(1).strip()
+        if dont_tip:
+            tips.append(f"Don't: {dont_tip}")
+    
+    # If no Do/Don't found, try splitting by common delimiters
+    if not tips:
+        lines = re.split(r'[\n\r•\-*]+', text)
+        for line in lines:
+            line = line.strip()
+            if 15 < len(line) < 150:
+                tips.append(line)
+    
+    return tips if tips else ["Trust your instincts and stay balanced today."]
 
 # ========================================
 # VIDEO CREATION - SHORTS ONLY
@@ -448,14 +468,8 @@ def create_text_image(text, width, height, fontsize, wrap=True):
     return np.array(img)
 
 def text_to_speech(text, filename):
-    """Convert text to speech - DISABLED (no voice-over needed)"""
-    # Voice-over removed per user request
-    # Create silent audio instead
-    from moviepy.editor import AudioClip
-    duration = max(5, len(text) / 20)  # Estimate: ~20 chars per second reading
-    silent_audio = AudioClip(lambda t: 0, duration=duration, fps=44100)
-    silent_audio.write_audiofile(filename, logger=None)
-    return filename
+    """Text to speech - NOT USED (no voice-over, just background music)"""
+    pass  # Removed - not needed
 
 def create_sign_segment(sign, content, resolution):
     """Create complete video segment for one zodiac sign"""
@@ -634,9 +648,21 @@ def create_youtube_shorts(all_content):
         
         bg_video = bg_video.subclip(0, duration)
         
-        # Resize to shorts format if needed
-        if bg_video.size != (resolution[0], resolution[1]):
-            bg_video = bg_video.resize(newsize=resolution)
+        # Resize to shorts format ONLY if needed (avoid resize errors)
+        bg_width, bg_height = bg_video.size
+        target_width, target_height = resolution
+        
+        if (bg_width, bg_height) != (target_width, target_height):
+            print(f"  🔄 Resizing from {bg_width}x{bg_height} to {target_width}x{target_height}")
+            # Use crop instead of resize to avoid quality issues
+            bg_video = bg_video.resize(height=target_height)
+            if bg_video.w > target_width:
+                # Center crop
+                x_center = bg_video.w / 2
+                x1 = int(x_center - target_width / 2)
+                bg_video = bg_video.crop(x1=x1, width=target_width)
+        else:
+            print(f"  ✅ Background already correct size: {bg_width}x{bg_height}")
         
         # Create text overlay
         text_img = create_text_image(text_content, resolution[0], resolution[1], 45)
