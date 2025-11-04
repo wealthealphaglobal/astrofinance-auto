@@ -16,6 +16,9 @@ from PIL import Image, ImageDraw, ImageFont
 import numpy as np
 import re
 
+if not hasattr(Image, 'ANTIALIAS'):
+    Image.ANTIALIAS = Image.Resampling.LANCZOS
+
 # Load configuration
 print("📋 Loading configuration...")
 with open('config.yaml', 'r') as f:
