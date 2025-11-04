@@ -54,7 +54,11 @@ def generate_content(sign):
 # ==========================
 def create_short(sign):
     print(f"⏳ Starting {sign} short...")
-    screen_size = VIDEO_CONFIG['shorts']['resolution']
+    youtube_shorts_config = VIDEO_CONFIG['platforms']['youtube']['shorts']
+screen_size = youtube_shorts_config['resolution']
+fps = youtube_shorts_config['fps']
+duration = youtube_shorts_config['duration']
+
     bg_clip = VideoFileClip(VIDEO_CONFIG['background_video']).resize(height=screen_size[1])
 
     today, horoscope_text, wealth_text, health_text = generate_content(sign)
