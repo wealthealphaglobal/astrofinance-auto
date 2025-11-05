@@ -108,23 +108,16 @@ jobs:
           echo "🎬 Starting FREE content generation..."
           python main.py
 
-      # 🔟 Upload to platforms (if enabled)
+      # 🔟 Upload to platforms (DISABLED - manual upload)
       - name: Upload to social media
+        if: false  # Disabled - you'll upload manually
         env:
           YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
           YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
-          INSTAGRAM_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
-          INSTAGRAM_USER_ID: ${{ secrets.INSTAGRAM_USER_ID }}
-          TIKTOK_ACCESS_TOKEN: ${{ secrets.TIKTOK_ACCESS_TOKEN }}
-          TWITTER_API_KEY: ${{ secrets.TWITTER_API_KEY }}
-          TWITTER_API_SECRET: ${{ secrets.TWITTER_API_SECRET }}
-          TWITTER_ACCESS_TOKEN: ${{ secrets.TWITTER_ACCESS_TOKEN }}
-          TWITTER_ACCESS_SECRET: ${{ secrets.TWITTER_ACCESS_SECRET }}
         run: |
-          echo "🚀 Starting upload process..."
-          python upload.py
-        continue-on-error: true  # Don't fail workflow if upload fails
+          echo "⚠️ Auto-upload disabled - download from Artifacts and upload manually"
+        continue-on-error: true
 
       # 1️⃣1️⃣ Upload videos as artifacts
       - name: Upload generated videos
