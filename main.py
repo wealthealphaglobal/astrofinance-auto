@@ -1,31 +1,17 @@
 import os
-import sys
-import time
-import random
+from datetime import datetime
 import textwrap
 import yaml
-from datetime import datetime
-from moviepy.editor import (
-    VideoFileClip, AudioFileClip, TextClip, CompositeVideoClip,
-    concatenate_videoclips, concatenate_audioclips
-)
+import random
+from moviepy.editor import VideoFileClip, AudioFileClip, TextClip, CompositeVideoClip, concatenate_audioclips
 from PIL import Image
 
-# --------------------------
-# 🧩 Fix Pillow compatibility
-# --------------------------
+# Patch for Pillow compatibility
 if not hasattr(Image, 'ANTIALIAS'):
     Image.ANTIALIAS = Image.LANCZOS
 
-# --------------------------
-# 📜 Load config safely
-# --------------------------
-CONFIG_FILE = "config.yaml"
-if not os.path.exists(CONFIG_FILE):
-    print("❌ config.yaml not found! Please place it next to main.py.")
-    sys.exit(1)
-
-with open(CONFIG_FILE, "r") as f:
+# Load config
+with open("config.yaml", "r") as f:
     CONFIG = yaml.safe_load(f)
 
 VIDEO_CONFIG = CONFIG['video']
@@ -33,164 +19,161 @@ SHORTS_CONFIG = CONFIG['platforms']['youtube']['shorts']
 TEXT_STYLE = CONFIG['text_style']
 ZODIAC_SIGNS = CONFIG['zodiac_signs']
 
-# --------------------------
-# 🎨 Visual Palette
-# --------------------------
+# Mystical color palette
 MYSTICAL_COLORS = [
     '#E6C27A', '#F1D18A', '#DDE1E4', '#F4F4F4',
     '#B8A1E0', '#A597E8', '#9CC9E3', '#AEEAF5', '#FFF9E3'
 ]
 
-# --------------------------
-# 📁 Ensure folders exist
-# --------------------------
+# Ensure output folders exist
 os.makedirs(VIDEO_CONFIG['output_folder'], exist_ok=True)
-shorts_folder = os.path.join(VIDEO_CONFIG['output_folder'], 'youtube_shorts')
-os.makedirs(shorts_folder, exist_ok=True)
+os.makedirs(os.path.join(VIDEO_CONFIG['output_folder'], 'youtube_shorts'), exist_ok=True)
+os.makedirs(VIDEO_CONFIG['temp_folder'], exist_ok=True)
 
-# --------------------------
-# 🧠 Helper: Text styling
-# --------------------------
-def create_text_clip(text, font_size, color, shadow_color, duration, screen_size):
-    """Create a stylized text clip with nice wrapping."""
-    wrapped = "\n".join(textwrap.wrap(text, width=28))
-    return (
-        TextClip(
-            wrapped,
-            fontsize=font_size,
-            color=color,
-            stroke_color=shadow_color,
-            stroke_width=3,
-            method="caption",
-            size=(screen_size[0] - 120, None),
-            align="center",
-        )
-        .set_duration(duration)
-        .fadein(0.4)
-        .fadeout(0.4)
-        .set_position("center")
-    )
+def create_text_clip(text, font_size, color, duration, screen_size):
+    """Create a stylized TextClip with word wrap."""
+    wrapped_text = "\n".join(textwrap.wrap(text, width=25))
+    txt_clip = TextClip(
+        wrapped_text,
+        fontsize=font_size,
+        color=color,
+        stroke_color='black',
+        stroke_width=3,
+        method='caption',
+        size=(screen_size[0] - 120, None),
+        align='center'
+    ).set_duration(duration).fadein(0.5).fadeout(0.5)
+    return txt_clip
 
-# --------------------------
-# 🌟 Core short generator
-# --------------------------
-def create_short(sign, test_mode=False):
-    start_time = time.time()
+def create_short(sign):
     print(f"\n🔮 [{sign}] — starting...")
-    sys.stdout.flush()  # for GitHub Action live log
-
-    screen_size = SHORTS_CONFIG["resolution"]
+    screen_size = SHORTS_CONFIG['resolution']
+    
+    # Pick random mystical color
     sign_color = random.choice(MYSTICAL_COLORS)
-
-    # 🎬 Load background
-    bg_clip = VideoFileClip(VIDEO_CONFIG["background_video"]).resize(height=720)
+    print(f"  🎨 Color: {sign_color}")
+    
+    # Target duration: 40-45 seconds
+    TARGET_DURATION = 45
+    print(f"  ⏱️ Duration planned: {TARGET_DURATION}s")
+    
+    # Load background video ONCE
+    bg_original = VideoFileClip(VIDEO_CONFIG['background_video'])
+    
+    # Crop to vertical format
     target_w, target_h = screen_size
-    scale = target_h / bg_clip.h
-    new_w = int(bg_clip.w * scale)
-    if new_w > target_w:
-        x1 = int((new_w - target_w) / 2)
-        bg_clip = bg_clip.resize(height=target_h).crop(x1=x1, width=target_w)
+    bg_w, bg_h = bg_original.size
+    
+    scale = target_h / bg_h
+    new_w = int(bg_w * scale)
+    
+    if new_w >= target_w:
+        bg_original = bg_original.resize(height=target_h)
+        x_center = bg_original.w / 2
+        x1 = int(x_center - target_w / 2)
+        bg_original = bg_original.crop(x1=x1, width=target_w)
     else:
-        bg_clip = bg_clip.resize(width=target_w)
-
+        bg_original = bg_original.resize(width=target_w)
+        if bg_original.h > target_h:
+            y_center = bg_original.h / 2
+            y1 = int(y_center - target_h / 2)
+            bg_original = bg_original.crop(y1=y1, height=target_h)
+    
+    # Use loop parameter instead of concatenate
+    if bg_original.duration < TARGET_DURATION:
+        loops_needed = int(TARGET_DURATION / bg_original.duration) + 1
+        bg_clip = bg_original.loop(n=loops_needed).subclip(0, TARGET_DURATION)
+    else:
+        bg_clip = bg_original.subclip(0, TARGET_DURATION)
+    
+    print(f"  ✅ Background: {bg_clip.size} for {TARGET_DURATION}s")
+    
+    # Content
     today = datetime.now().strftime("%d %b %Y")
-    # ✨ Horoscope text (editable or AI-generated later)
-    title_text = f"✨ {sign} ✨\n{today}"
-    horoscope_text = f"{sign}, cosmic energy aligns your path today. Stay calm and trust the universe’s timing."
-    wealth_text = f"💰 Wealth Tip\nDo: Think long-term.\nDon’t: Spend impulsively."
-    health_text = f"🏥 Health Tip\nDo: Breathe deeply & stay hydrated.\nDon’t: Skip your rest."
-
-    # 🎞️ Create text clips in order
-    clips = [
-        create_text_clip(title_text, TEXT_STYLE["title_font_size"], sign_color, "black", 5, screen_size),
-        create_text_clip(horoscope_text, TEXT_STYLE["content_font_size"], sign_color, "black", 15, screen_size),
-        create_text_clip(wealth_text, TEXT_STYLE["tip_font_size"], sign_color, "black", 10, screen_size),
-        create_text_clip(health_text, TEXT_STYLE["tip_font_size"], sign_color, "black", 10, screen_size),
+    
+    sections = [
+        (f"✨ {sign} ✨\n{today}", TEXT_STYLE['title_font_size'], 5),
+        (f"Namaste {sign}! The stars shine bright for you today. Planetary energy brings opportunities in relationships and career. Trust your intuition and embrace the cosmic flow.", TEXT_STYLE['content_font_size'], 15),
+        (f"💰 Wealth Guidance\n\nDo: Plan finances with Mercury's clarity. Strategic thinking favors you.\n\nDon't: Rush major investments. Patience brings better returns.", TEXT_STYLE['tip_font_size'], 12),
+        (f"🏥 Wellness Blessing\n\nThe Moon stirs emotions. Drink water mindfully and practice deep breathing. Blessings for vitality and peace.", TEXT_STYLE['tip_font_size'], 13)
     ]
-
-    total_duration = sum(c.duration for c in clips)
-    print(f"⏱️ Duration planned: {total_duration:.1f}s")
-
-    # Loop background if too short
-    if bg_clip.duration < total_duration:
-        loops = int(total_duration / bg_clip.duration) + 1
-        bg_clip = concatenate_videoclips([bg_clip] * loops)
-    bg_clip = bg_clip.subclip(0, total_duration)
-
-    # Compose sequentially
-    timeline, current = [], 0
-    for clip in clips:
-        segment = CompositeVideoClip(
-            [bg_clip.subclip(current, current + clip.duration), clip]
-        ).set_duration(clip.duration)
-        timeline.append(segment)
-        current += clip.duration
-
-    final = concatenate_videoclips(timeline, method="compose")
-
-    # 🎵 Add background mantra
-    if os.path.exists(VIDEO_CONFIG["background_music"]):
-        music = AudioFileClip(VIDEO_CONFIG["background_music"]).volumex(VIDEO_CONFIG["music_volume"])
-        if music.duration < final.duration:
-            loops = int(final.duration / music.duration) + 1
-            music = concatenate_audioclips([music] * loops)
-        final = final.set_audio(music.subclip(0, final.duration))
-
-    # Trim for YouTube Shorts
-    if final.duration > 58:
-        final = final.subclip(0, 58)
-        print("⚠️ Trimmed to 58 seconds for Shorts compliance")
-
-    # 🧾 Save output
-    filename = f"{sign}_{datetime.now():%Y%m%d}.mp4"
-    output_path = os.path.join(shorts_folder, filename)
-    print(f"🎥 Rendering {filename} ...")
-
-    final.write_videofile(
-        output_path,
-        fps=24,
-        codec="libx264",
-        audio_codec="aac",
-        preset="ultrafast",
-        threads=2,
-        logger=None,
+    
+    # Create text overlays
+    text_clips = []
+    for text, font_size, duration in sections:
+        clip = create_text_clip(text, font_size, sign_color, duration, screen_size)
+        # Position lower (5 lines = ~250px lower)
+        clip = clip.set_position(('center', screen_size[1] - 900))
+        clip = clip.set_start(sum([s[2] for s in sections[:sections.index((text, font_size, duration))]]))
+        text_clips.append(clip)
+    
+    # Composite: background + all text overlays at once
+    final_video = CompositeVideoClip([bg_clip] + text_clips).set_duration(TARGET_DURATION)
+    
+    # Add OM Mantra music
+    if os.path.exists(VIDEO_CONFIG['background_music']):
+        print(f"  🎵 Adding OM Mantra...")
+        music = AudioFileClip(VIDEO_CONFIG['background_music'])
+        music = music.volumex(VIDEO_CONFIG['music_volume'])
+        
+        if music.duration < TARGET_DURATION:
+            # Loop music
+            loops = int(TARGET_DURATION / music.duration) + 1
+            music = music.loop(n=loops).subclip(0, TARGET_DURATION)
+        else:
+            music = music.subclip(0, TARGET_DURATION)
+        
+        final_video = final_video.set_audio(music)
+    
+    # Ensure under 58 seconds
+    if final_video.duration > 58:
+        final_video = final_video.subclip(0, 58)
+    
+    output_file = os.path.join(
+        VIDEO_CONFIG['output_folder'], 
+        'youtube_shorts', 
+        f"{sign}_{datetime.now().strftime('%Y%m%d')}.mp4"
     )
-
-    elapsed = time.time() - start_time
-    print(f"✅ [{sign}] — completed in {elapsed:.1f}s")
-    sys.stdout.flush()
-
+    
+    final_video.write_videofile(
+        output_file, 
+        fps=SHORTS_CONFIG['fps'],
+        codec='libx264',
+        audio_codec='aac',
+        preset='ultrafast',
+        threads=4,
+        logger=None
+    )
+    
+    print(f"  ✅ Completed! ({final_video.duration:.1f}s)")
+    
+    # Cleanup
+    bg_original.close()
     bg_clip.close()
-    final.close()
+    final_video.close()
+    
+    return output_file
 
-    if test_mode:
-        print("🧪 Test mode: stopping after first sign.")
-        return False  # stop after first sign
-    return True  # continue
-
-# --------------------------
-# 🪐 Main Execution
-# --------------------------
 def main():
-    print("🎬 Starting AstroFinance Shorts Generator")
-    print(f"📅 {datetime.now():%B %d, %Y}")
-    print("=" * 60)
+    print("="*60)
+    print("🌟 ASTROFINANCE DAILY - VEDIC SHORTS")
+    print("="*60)
+    print(f"📅 {datetime.now().strftime('%B %d, %Y')}")
+    print("="*60)
+    
+    created = []
+    for sign in ZODIAC_SIGNS:
+        try:
+            video = create_short(sign)
+            created.append(video)
+        except Exception as e:
+            print(f"  ❌ Error: {e}")
+    
+    print("\n"+"="*60)
+    print(f"✅ Completed {len(created)}/12 shorts!")
+    print("="*60)
+    print(f"📁 {VIDEO_CONFIG['output_folder']}/youtube_shorts/")
+    print("💰 COST: $0.00")
 
-    for i, sign in enumerate(ZODIAC_SIGNS, start=1):
-        cont = create_short(sign, test_mode=True)  # Change to False for full batch
-        if not cont:
-            break
-        print(f"🔁 Progress: {i}/{len(ZODIAC_SIGNS)} done\n")
-
-    print("------------------------------------------------------------")
-    print("✨ All completed successfully (test mode).")
-    print(f"📁 Saved in: {shorts_folder}")
-    print("=" * 60)
-
-# --------------------------
-# 🚀 Run
-# --------------------------
 if __name__ == "__main__":
-    # Make stdout unbuffered (real-time logs in GitHub Actions)
-    sys.stdout.reconfigure(line_buffering=True)
     main()
