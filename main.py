@@ -107,7 +107,7 @@ def create_short(sign):
     current_time = 0
     
     # Position settings
-    HEADING_Y = 100  # moved heading upward
+    HEADING_Y = 175  # moved heading upward
     TEXT_Y = 910     # main text lower by ~7 lines
     
     # 1. TITLE with Sign — stays visible entire video
