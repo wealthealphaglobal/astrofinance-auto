@@ -169,14 +169,14 @@ def create_heading(text, font_size, color, duration, screen_size, fade=True):
 
 
 def create_text_chunks(text, font_size, screen_size, total_duration):
-    """Split text into chunks of 6-7 lines with fade transitions"""
+    """Split text into chunks of 8-9 lines with fade transitions"""
     # Wrap text to fit screen width
     wrapped_lines = []
     for line in text.split('\n'):
         wrapped_lines.extend(textwrap.wrap(line, width=32))
     
-    # Split into chunks of 6-7 lines
-    LINES_PER_CHUNK = 8
+    # Split into chunks of 8-9 lines
+    LINES_PER_CHUNK = 9  # Changed from 6 to 9
     chunks = []
     
     for i in range(0, len(wrapped_lines), LINES_PER_CHUNK):
