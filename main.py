@@ -1,3 +1,165 @@
+import os
+from datetime import datetime
+import textwrap
+import yaml
+import requests
+from moviepy.editor import VideoFileClip, AudioFileClip, TextClip, CompositeVideoClip
+from PIL import Image
+
+# Patch for Pillow compatibility
+if not hasattr(Image, 'ANTIALIAS'):
+    Image.ANTIALIAS = Image.LANCZOS
+
+# Load config
+with open("config.yaml", "r") as f:
+    CONFIG = yaml.safe_load(f)
+
+VIDEO_CONFIG = CONFIG['video']
+SHORTS_CONFIG = CONFIG['platforms']['youtube']['shorts']
+TEXT_STYLE = CONFIG['text_style']
+ZODIAC_SIGNS = CONFIG['zodiac_signs']
+
+# Get API keys from environment
+GROQ_API_KEY = os.getenv('GROQ_API_KEY', '')
+HUGGINGFACE_API_KEY = os.getenv('HUGGINGFACE_API_KEY', '')
+
+# Ensure output folders exist
+os.makedirs(VIDEO_CONFIG['output_folder'], exist_ok=True)
+os.makedirs(os.path.join(VIDEO_CONFIG['output_folder'], 'youtube_shorts'), exist_ok=True)
+os.makedirs(VIDEO_CONFIG['temp_folder'], exist_ok=True)
+
+
+# ========================================
+# API FETCHING FUNCTIONS
+# ========================================
+
+def fetch_ai_content(prompt, sign):
+    """Fetch content from Groq or HuggingFace"""
+    formatted_prompt = prompt.format(sign=sign)
+    
+    # Try Groq first
+    if GROQ_API_KEY:
+        try:
+            print(f"      🤖 Groq AI...")
+            response = requests.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {GROQ_API_KEY}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "model": "llama-3.3-70b-versatile",
+                    "messages": [
+                        {"role": "system", "content": "You are a warm Vedic astrologer. Keep responses concise and natural."},
+                        {"role": "user", "content": formatted_prompt}
+                    ],
+                    "temperature": 0.7,
+                    "max_tokens": 150
+                },
+                timeout=15
+            )
+            if response.status_code == 200:
+                return response.json()['choices'][0]['message']['content'].strip()
+        except Exception as e:
+            print(f"      ⚠️ Groq failed: {e}")
+    
+    # Try HuggingFace
+    if HUGGINGFACE_API_KEY:
+        try:
+            print(f"      🤖 HuggingFace...")
+            response = requests.post(
+                "https://router.huggingface.co/hf-inference/models/deepseek-ai/DeepSeek-V3",
+                headers={"Authorization": f"Bearer {HUGGINGFACE_API_KEY}"},
+                json={
+                    "inputs": formatted_prompt,
+                    "parameters": {"max_new_tokens": 150, "temperature": 0.7}
+                },
+                timeout=15
+            )
+            if response.status_code == 200:
+                result = response.json()
+                if isinstance(result, list) and len(result) > 0:
+                    return result[0].get('generated_text', '').strip()
+        except Exception as e:
+            print(f"      ⚠️ HuggingFace failed: {e}")
+    
+    return None
+
+
+def clean_and_summarize(text):
+    """Clean AI response and make it more concise/natural"""
+    text = text.replace("**", "").replace("*", "").replace("#", "").strip()
+    
+    prefixes = ["Here is", "Here's", "Today's", "For today", "Namaste"]
+    for prefix in prefixes:
+        if text.startswith(prefix):
+            text = text[len(prefix):].strip()
+            if text.startswith(":") or text.startswith(","):
+                text = text[1:].strip()
+    
+    sentences = [s.strip() for s in text.replace("!", ".").replace("?", ".").split(".") if s.strip()]
+    
+    if len(sentences) > 4:
+        sentences = sentences[:4]
+    
+    result = ". ".join(sentences)
+    if result and result[-1] not in ".!?":
+        result += "."
+    
+    return result
+
+
+def get_content_for_sign(sign):
+    """Get horoscope, wealth, and health content"""
+    print(f"    📝 Fetching content...")
+    
+    horo = fetch_ai_content(CONFIG['free_ai']['prompts']['horoscope'], sign)
+    if not horo:
+        horo = f"Namaste {sign}! The stars shine bright for you today. Planetary energy brings opportunities in relationships and career. Trust your intuition."
+    horo = clean_and_summarize(horo)
+    
+    wealth = fetch_ai_content(CONFIG['free_ai']['prompts']['wealth'], sign)
+    if not wealth:
+        wealth = "Do: Plan finances with Mercury's clarity. Don't: Rush major investments today."
+    wealth = clean_and_summarize(wealth)
+    
+    health = fetch_ai_content(CONFIG['free_ai']['prompts']['health'], sign)
+    if not health:
+        health = "The Moon stirs emotions today. Drink water mindfully and practice deep breathing for balance."
+    health = clean_and_summarize(health)
+    
+    print(f"    ✅ Content ready")
+    return {'horoscope': horo, 'wealth': wealth, 'health': health}
+
+
+# ========================================
+# VIDEO CREATION FUNCTIONS
+# ========================================
+
+def create_heading(text, font_size, color, duration, screen_size, fade=True):
+    """Create BOLD, BIGGER heading with underline"""
+    heading = TextClip(
+        text,
+        fontsize=font_size + 20,
+        color="#F5F5F5",
+        font='Arial-Bold',
+        method='label'
+    ).set_duration(duration)
+    
+    underline = TextClip(
+        "━" * 20,
+        fontsize=font_size // 2,
+        color="#F5F5F5",
+        method='label'
+    ).set_duration(duration)
+    
+    if fade:
+        heading = heading.fadein(0.8).fadeout(0.8)
+        underline = underline.fadein(0.8).fadeout(0.8)
+    
+    return heading, underline
+
+
 def create_text_chunks(text, font_size, screen_size, total_duration):
     """Split text intelligently based on content length with adaptive timing"""
     # Wrap text to fit screen
@@ -258,19 +420,48 @@ def create_short(sign, content):
     final_video.close()
     
     return output_file
-```
 
-**What's now SMART:**
 
-1. ✅ **Adaptive timing** - Each section gets time based on its content length
-2. ✅ **Proportional chunking** - Chunks get time based on their line count
-3. ✅ **No orphan words** - Intelligently groups text to avoid single words
-4. ✅ **Minimum 3s per chunk** - Ensures readability
-5. ✅ **Debug output** - Shows exactly how time is distributed
-6. ✅ **Always 59 seconds** - Perfectly fills the time
+def main():
+    print("="*60)
+    print("🌟 ASTROFINANCE DAILY - TEST MODE")
+    print("="*60)
+    print(f"📅 {datetime.now().strftime('%B %d, %Y')}")
+    print("="*60)
+    
+    if GROQ_API_KEY:
+        print("🤖 API: Groq ✅")
+    elif HUGGINGFACE_API_KEY:
+        print("🤖 API: HuggingFace ✅")
+    else:
+        print("⚠️ No API key - using fallback")
+    
+    print("\n⚠️  TEST MODE: Generating only 1 short (Aries)\n")
+    
+    TEST_SIGN = "Aries"
+    
+    try:
+        content = get_content_for_sign(TEST_SIGN)
+        video = create_short(TEST_SIGN, content)
+        
+        print("\n"+"="*60)
+        print(f"✅ TEST SUCCESSFUL!")
+        print("="*60)
+        print(f"📁 Video: {video}")
+        print(f"\n📝 Content used:")
+        print(f"   Horo: {content['horoscope']}")
+        print(f"   Wealth: {content['wealth']}")
+        print(f"   Health: {content['health']}")
+        print("\n💡 If good, change TEST_SIGN to loop through all signs:")
+        print("   for sign in ZODIAC_SIGNS:")
+        print("       content = get_content_for_sign(sign)")
+        print("       create_short(sign, content)")
+        print("\n💰 COST: $0.00")
+    except Exception as e:
+        print(f"\n❌ TEST FAILED: {e}")
+        import traceback
+        traceback.print_exc()
 
-The script will now show you in the console:
-```
-📊 Content lengths: Horo=145, Wealth=98, Health=87
-⏱️ Timing: Horo=24s, Wealth=16s, Health=14s, Subscribe=5s
-⏱️ Total: 59s
+
+if __name__ == "__main__":
+    main()
