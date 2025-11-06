@@ -3,7 +3,7 @@ from datetime import datetime
 import textwrap
 import yaml
 import requests
-from moviepy.editor import VideoFileClip, AudioFileClip, TextClip, CompositeVideoClip, ImageClip
+from moviepy.editor import VideoFileClip, AudioFileClip, TextClip, CompositeVideoClip
 from PIL import Image
 
 # Patch for Pillow compatibility
@@ -50,11 +50,11 @@ def fetch_ai_content(prompt, sign):
                 json={
                     "model": "llama-3.3-70b-versatile",
                     "messages": [
-                        {"role": "system", "content": "You are a warm Vedic astrologer."},
+                        {"role": "system", "content": "You are a warm Vedic astrologer. Keep responses concise and natural."},
                         {"role": "user", "content": formatted_prompt}
                     ],
                     "temperature": 0.7,
-                    "max_tokens": 200
+                    "max_tokens": 150  # Shorter for better summaries
                 },
                 timeout=15
             )
@@ -72,7 +72,7 @@ def fetch_ai_content(prompt, sign):
                 headers={"Authorization": f"Bearer {HUGGINGFACE_API_KEY}"},
                 json={
                     "inputs": formatted_prompt,
-                    "parameters": {"max_new_tokens": 200, "temperature": 0.7}
+                    "parameters": {"max_new_tokens": 150, "temperature": 0.7}
                 },
                 timeout=15
             )
@@ -86,6 +86,34 @@ def fetch_ai_content(prompt, sign):
     return None
 
 
+def clean_and_summarize(text):
+    """Clean AI response and make it more concise/natural"""
+    # Remove markdown and special chars
+    text = text.replace("**", "").replace("*", "").replace("#", "").strip()
+    
+    # Remove common prefixes
+    prefixes = ["Here is", "Here's", "Today's", "For today", "Namaste"]
+    for prefix in prefixes:
+        if text.startswith(prefix):
+            text = text[len(prefix):].strip()
+            if text.startswith(":") or text.startswith(","):
+                text = text[1:].strip()
+    
+    # Split into sentences
+    sentences = [s.strip() for s in text.replace("!", ".").replace("?", ".").split(".") if s.strip()]
+    
+    # Keep first 3-4 sentences for natural paragraph flow
+    if len(sentences) > 4:
+        sentences = sentences[:4]
+    
+    # Join back naturally
+    result = ". ".join(sentences)
+    if result and result[-1] not in ".!?":
+        result += "."
+    
+    return result
+
+
 def get_content_for_sign(sign):
     """Get horoscope, wealth, and health content"""
     print(f"    📝 Fetching content...")
@@ -94,34 +122,34 @@ def get_content_for_sign(sign):
     horo = fetch_ai_content(CONFIG['free_ai']['prompts']['horoscope'], sign)
     if not horo:
         horo = f"Namaste {sign}! The stars shine bright for you today. Planetary energy brings opportunities in relationships and career. Trust your intuition."
-    horo = horo.replace("**", "").replace("*", "").strip()
+    horo = clean_and_summarize(horo)
     
     # Wealth
     wealth = fetch_ai_content(CONFIG['free_ai']['prompts']['wealth'], sign)
     if not wealth:
-        wealth = "Do: Plan finances with Mercury's clarity. Strategic thinking favors you.\n\nDon't: Rush major investments. Patience brings returns."
-    wealth = wealth.replace("**", "").replace("*", "").strip()
+        wealth = "Do: Plan finances with Mercury's clarity. Don't: Rush major investments today."
+    wealth = clean_and_summarize(wealth)
     
     # Health
     health = fetch_ai_content(CONFIG['free_ai']['prompts']['health'], sign)
     if not health:
-        health = "The Moon stirs emotions. Drink water mindfully and practice deep breathing. Blessings for vitality."
-    health = health.replace("**", "").replace("*", "").strip()
+        health = "The Moon stirs emotions today. Drink water mindfully and practice deep breathing for balance."
+    health = clean_and_summarize(health)
     
     print(f"    ✅ Content ready")
     return {'horoscope': horo, 'wealth': wealth, 'health': health}
 
 
 # ========================================
-# YOUR ORIGINAL VIDEO FUNCTIONS
+# VIDEO CREATION FUNCTIONS
 # ========================================
 
 def create_heading(text, font_size, color, duration, screen_size, fade=True):
-    """Create BOLD, BIGGER heading with underline - NO background box."""
+    """Create BOLD, BIGGER heading with underline"""
     heading = TextClip(
         text,
         fontsize=font_size + 20,
-        color="#F5F5F5",  # soft white
+        color="#F5F5F5",
         font='Arial-Bold',
         method='label'
     ).set_duration(duration)
@@ -140,32 +168,56 @@ def create_heading(text, font_size, color, duration, screen_size, fade=True):
     return heading, underline
 
 
-def create_text_clip(text, font_size, color, duration, screen_size):
-    """Create wrapped text without background box."""
-    wrapped_text = "\n".join(textwrap.wrap(text, width=28))
+def create_text_chunks(text, font_size, screen_size, total_duration):
+    """Split text into chunks of 6-7 lines with fade transitions"""
+    # Wrap text to fit screen width
+    wrapped_lines = []
+    for line in text.split('\n'):
+        wrapped_lines.extend(textwrap.wrap(line, width=32))
     
-    txt_clip = TextClip(
-        wrapped_text,
-        fontsize=font_size,
-        color="#F5F5F5",  # soft white
-        method='label',
-        align='center'
-    ).set_duration(duration).fadein(0.5).fadeout(0.5)
-    return txt_clip
+    # Split into chunks of 6-7 lines
+    LINES_PER_CHUNK = 6
+    chunks = []
+    
+    for i in range(0, len(wrapped_lines), LINES_PER_CHUNK):
+        chunk_lines = wrapped_lines[i:i + LINES_PER_CHUNK]
+        chunk_text = "\n".join(chunk_lines)
+        chunks.append(chunk_text)
+    
+    # Calculate duration per chunk
+    chunk_duration = total_duration / len(chunks) if chunks else total_duration
+    
+    # Create clips for each chunk
+    text_clips = []
+    current_time = 0
+    
+    for chunk in chunks:
+        clip = TextClip(
+            chunk,
+            fontsize=font_size,
+            color="#F5F5F5",
+            method='label',
+            align='center'
+        ).set_duration(chunk_duration).set_start(current_time).fadein(0.5).fadeout(0.5)
+        
+        text_clips.append(clip)
+        current_time += chunk_duration
+    
+    return text_clips
 
 
 def create_short(sign, content):
-    """YOUR ORIGINAL FUNCTION with API content + subscribe screen"""
+    """Create short with chunked text and fade transitions"""
     print(f"\n🔮 [{sign}] — starting...")
     screen_size = SHORTS_CONFIG['resolution']
     
-    sign_color = "#F5F5F5"  # soft white for all text
+    sign_color = "#F5F5F5"
     
-    MAIN_DURATION = 45  # Your original duration
-    SUBSCRIBE_DURATION = 10  # New subscribe screen
-    TARGET_DURATION = MAIN_DURATION + SUBSCRIBE_DURATION  # 55 seconds total
+    MAIN_DURATION = 45
+    SUBSCRIBE_DURATION = 10
+    TARGET_DURATION = MAIN_DURATION + SUBSCRIBE_DURATION
     
-    print(f"  ⏱️ Duration: {TARGET_DURATION}s (45s content + 10s subscribe)")
+    print(f"  ⏱️ Duration: {TARGET_DURATION}s (45s + 10s subscribe)")
     
     # Load background
     bg_original = VideoFileClip(VIDEO_CONFIG['background_video'])
@@ -189,7 +241,7 @@ def create_short(sign, content):
             y1 = int(y_center - target_h / 2)
             bg_original = bg_original.crop(y1=y1, height=target_h)
     
-    # Loop background if needed (now for 55 seconds)
+    # Loop background
     if bg_original.duration < TARGET_DURATION:
         loops = int(TARGET_DURATION / bg_original.duration) + 1
         bg_clip = bg_original.loop(n=loops).subclip(0, TARGET_DURATION)
@@ -198,25 +250,22 @@ def create_short(sign, content):
     
     print(f"  ✅ Background ready")
     
-    # All clips
     all_clips = []
     current_time = 0
     
-    # === POSITION SETTINGS (YOUR ORIGINAL) ===
-    HEADING_Y = 100        # base heading position (requested)
-    TEXT_Y = 910           # main text 7 rows down (~210px lower)
+    # Position settings
+    HEADING_Y = 100
+    TEXT_Y = 910
+    SIGN_Y = HEADING_Y + 60
+    DATE_Y = SIGN_Y + 130
+    HORO_HEADING_Y = HEADING_Y - 60
     
-    # Adjustments to avoid overlay
-    SIGN_Y = HEADING_Y + 60          # sign slightly down
-    DATE_Y = SIGN_Y + 130            # date pushed further down to avoid overlap
-    HORO_HEADING_Y = HEADING_Y - 60  # Daily Horoscope slightly up
-    
-    # === 1. TITLE (SIGN + DATE) — visible for main content only (45s) ===
+    # 1. TITLE (SIGN + DATE) — visible for 45s
     title_heading, title_underline = create_heading(
         f"✨ {sign} ✨",
         TEXT_STYLE['title_font_size'],
         sign_color,
-        MAIN_DURATION,  # Only show for 45s
+        MAIN_DURATION,
         screen_size,
         fade=False
     )
@@ -229,10 +278,10 @@ def create_short(sign, content):
         fontsize=35,
         color="#F5F5F5",
         method='label'
-    ).set_duration(MAIN_DURATION).set_position(('center', DATE_Y))  # Only 45s
+    ).set_duration(MAIN_DURATION).set_position(('center', DATE_Y))
     all_clips.append(date_clip)
     
-    # === 2. HOROSCOPE (15s) - NOW WITH REAL API CONTENT ===
+    # 2. HOROSCOPE (15s) - Chunked with fade
     horo_heading, horo_underline = create_heading(
         "🌙 Daily Horoscope",
         TEXT_STYLE['content_font_size'],
@@ -244,61 +293,43 @@ def create_short(sign, content):
     horo_underline = horo_underline.set_position(('center', HORO_HEADING_Y + 100)).set_start(current_time)
     all_clips.extend([horo_heading, horo_underline])
     
-    horo_text = create_text_clip(
-        content['horoscope'],  # REAL API CONTENT
-        TEXT_STYLE['content_font_size'] - 5,
-        sign_color,
-        15,
-        screen_size
-    ).set_position(('center', TEXT_Y)).set_start(current_time)
-    all_clips.append(horo_text)
+    # Create chunked text clips for horoscope
+    horo_chunks = create_text_chunks(content['horoscope'], TEXT_STYLE['content_font_size'] - 5, screen_size, 15)
+    for chunk in horo_chunks:
+        chunk = chunk.set_position(('center', TEXT_Y)).set_start(current_time + chunk.start)
+        all_clips.append(chunk)
     current_time += 15
     
-    # === 3. WEALTH TEXT ONLY (12s) - REAL API CONTENT ===
-    wealth_text = create_text_clip(
-        content['wealth'],  # REAL API CONTENT
-        TEXT_STYLE['tip_font_size'] - 5,
-        sign_color,
-        12,
-        screen_size
-    ).set_position(('center', TEXT_Y)).set_start(current_time)
-    all_clips.append(wealth_text)
+    # 3. WEALTH (12s) - Chunked with fade
+    wealth_chunks = create_text_chunks(content['wealth'], TEXT_STYLE['tip_font_size'] - 5, screen_size, 12)
+    for chunk in wealth_chunks:
+        chunk = chunk.set_position(('center', TEXT_Y)).set_start(current_time + chunk.start)
+        all_clips.append(chunk)
     current_time += 12
     
-    # === 4. HEALTH TEXT ONLY (13s) - REAL API CONTENT ===
-    health_text = create_text_clip(
-        content['health'],  # REAL API CONTENT
-        TEXT_STYLE['tip_font_size'] - 5,
-        sign_color,
-        13,
-        screen_size
-    ).set_position(('center', TEXT_Y)).set_start(current_time)
-    all_clips.append(health_text)
-    current_time += 13  # Now at 45 seconds
+    # 4. HEALTH (13s) - Chunked with fade
+    health_chunks = create_text_chunks(content['health'], TEXT_STYLE['tip_font_size'] - 5, screen_size, 13)
+    for chunk in health_chunks:
+        chunk = chunk.set_position(('center', TEXT_Y)).set_start(current_time + chunk.start)
+        all_clips.append(chunk)
+    current_time += 13
     
-    # === 5. SUBSCRIBE SCREEN (10s) - NEW ===
-    if os.path.exists('sub.png'):
-        print(f"  📺 Adding sub.png...")
-        sub_img = ImageClip('sub.png').set_duration(SUBSCRIBE_DURATION)
-        sub_img = sub_img.resize(height=screen_size[1])
-        sub_img = sub_img.set_position('center').set_start(MAIN_DURATION).fadein(0.5)
-        all_clips.append(sub_img)
-    else:
-        print(f"  ⚠️ sub.png not found - creating text screen")
-        sub_text = TextClip(
-            "🔔 LIKE • SHARE • SUBSCRIBE\n\nFor Daily Cosmic Guidance",
-            fontsize=50,
-            color="#FFD700",
-            font='Arial-Bold',
-            method='label',
-            align='center'
-        ).set_duration(SUBSCRIBE_DURATION).set_position('center').set_start(MAIN_DURATION).fadein(0.5)
-        all_clips.append(sub_text)
+    # 5. SUBSCRIBE SCREEN (10s) - Text based
+    print(f"  📺 Adding subscribe text...")
+    sub_text = TextClip(
+        "🔔 SUBSCRIBE\n\nLIKE • SHARE • COMMENT\n\nFor Daily Cosmic Guidance ✨",
+        fontsize=55,
+        color="#FFD700",
+        font='Arial-Bold',
+        method='label',
+        align='center'
+    ).set_duration(SUBSCRIBE_DURATION).set_position('center').set_start(MAIN_DURATION).fadein(0.5)
+    all_clips.append(sub_text)
     
-    # === FINAL COMPOSITION ===
+    # Composite
     final_video = CompositeVideoClip([bg_clip] + all_clips).set_duration(TARGET_DURATION)
     
-    # Add OM Mantra background audio
+    # Add OM Mantra
     if os.path.exists(VIDEO_CONFIG['background_music']):
         print(f"  🎵 Adding OM Mantra...")
         music = AudioFileClip(VIDEO_CONFIG['background_music']).volumex(VIDEO_CONFIG['music_volume'])
@@ -311,7 +342,7 @@ def create_short(sign, content):
         
         final_video = final_video.set_audio(music)
     
-    # Limit to 58s if needed
+    # Ensure under 58s
     if final_video.duration > 58:
         final_video = final_video.subclip(0, 58)
     
@@ -360,10 +391,7 @@ def main():
     TEST_SIGN = "Aries"
     
     try:
-        # Fetch content from API
         content = get_content_for_sign(TEST_SIGN)
-        
-        # Create video
         video = create_short(TEST_SIGN, content)
         
         print("\n"+"="*60)
@@ -371,9 +399,9 @@ def main():
         print("="*60)
         print(f"📁 Video: {video}")
         print(f"\n📝 Content used:")
-        print(f"   Horo: {content['horoscope'][:50]}...")
-        print(f"   Wealth: {content['wealth'][:50]}...")
-        print(f"   Health: {content['health'][:50]}...")
+        print(f"   Horo: {content['horoscope']}")
+        print(f"   Wealth: {content['wealth']}")
+        print(f"   Health: {content['health']}")
         print("\n💡 If good, change to generate all 12 signs")
         print("💰 COST: $0.00")
     except Exception as e:
