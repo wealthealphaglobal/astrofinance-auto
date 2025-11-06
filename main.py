@@ -106,33 +106,37 @@ def create_short(sign):
     all_clips = []
     current_time = 0
     
-    # Position settings
-    HEADING_Y = 175  # moved heading upward
-    TEXT_Y = 910     # main text lower by ~7 lines
+    # === POSITION SETTINGS ===
+    HEADING_Y = 100        # base heading position (requested)
+    TEXT_Y = 910           # main text 7 rows down (~210px lower)
     
-    # 1. TITLE with Sign — stays visible entire video
+    # Adjustments to avoid overlay
+    SIGN_Y = HEADING_Y + 60         # sign slightly down
+    DATE_Y = SIGN_Y + 80            # date just below sign
+    HORO_HEADING_Y = HEADING_Y - 60 # Daily Horoscope slightly up
+    
+    # === 1. TITLE (SIGN + DATE) — visible entire video ===
     title_heading, title_underline = create_heading(
         f"✨ {sign} ✨",
         TEXT_STYLE['title_font_size'],
         sign_color,
-        TARGET_DURATION,  # full duration
+        TARGET_DURATION,
         screen_size,
-        fade=False  # no fade
+        fade=False
     )
-    title_heading = title_heading.set_position(('center', HEADING_Y))
-    title_underline = title_underline.set_position(('center', HEADING_Y + 100))
+    title_heading = title_heading.set_position(('center', SIGN_Y))
+    title_underline = title_underline.set_position(('center', SIGN_Y + 100))
     all_clips.extend([title_heading, title_underline])
     
-    # Date — stays visible entire video
     date_clip = TextClip(
         datetime.now().strftime("%d %b %Y"),
         fontsize=35,
         color="#F5F5F5",
         method='label'
-    ).set_duration(TARGET_DURATION).set_position(('center', HEADING_Y + 150))
+    ).set_duration(TARGET_DURATION).set_position(('center', DATE_Y))
     all_clips.append(date_clip)
     
-    # 2. HOROSCOPE (15s)
+    # === 2. HOROSCOPE (15s) ===
     horo_heading, horo_underline = create_heading(
         "🌙 Daily Horoscope",
         TEXT_STYLE['content_font_size'],
@@ -140,8 +144,8 @@ def create_short(sign):
         15,
         screen_size
     )
-    horo_heading = horo_heading.set_position(('center', HEADING_Y)).set_start(current_time)
-    horo_underline = horo_underline.set_position(('center', HEADING_Y + 100)).set_start(current_time)
+    horo_heading = horo_heading.set_position(('center', HORO_HEADING_Y)).set_start(current_time)
+    horo_underline = horo_underline.set_position(('center', HORO_HEADING_Y + 100)).set_start(current_time)
     all_clips.extend([horo_heading, horo_underline])
     
     horo_text = create_text_clip(
@@ -154,7 +158,7 @@ def create_short(sign):
     all_clips.append(horo_text)
     current_time += 15
     
-    # 3. WEALTH (12s)
+    # === 3. WEALTH (12s) ===
     wealth_heading, wealth_underline = create_heading(
         "💰 Wealth Guidance",
         TEXT_STYLE['tip_font_size'],
@@ -176,7 +180,7 @@ def create_short(sign):
     all_clips.append(wealth_text)
     current_time += 12
     
-    # 4. HEALTH (13s)
+    # === 4. HEALTH (13s) ===
     health_heading, health_underline = create_heading(
         "🏥 Wellness Blessing",
         TEXT_STYLE['tip_font_size'],
@@ -197,7 +201,7 @@ def create_short(sign):
     ).set_position(('center', TEXT_Y)).set_start(current_time)
     all_clips.append(health_text)
     
-    # Composite video
+    # === FINAL COMPOSITION ===
     final_video = CompositeVideoClip([bg_clip] + all_clips).set_duration(TARGET_DURATION)
     
     # Add OM Mantra background audio
