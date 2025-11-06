@@ -24,34 +24,38 @@ os.makedirs(os.path.join(VIDEO_CONFIG['output_folder'], 'youtube_shorts'), exist
 os.makedirs(VIDEO_CONFIG['temp_folder'], exist_ok=True)
 
 
-def create_heading(text, font_size, color, duration, screen_size):
+def create_heading(text, font_size, color, duration, screen_size, fade=True):
     """Create BOLD, BIGGER heading with underline - NO background box."""
     heading = TextClip(
         text,
-        fontsize=font_size + 20,  # Make it bigger
-        color="#F5F5F5",  # Soft white
-        font='Arial-Bold',  # Bold font
-        method='label'  # No background box
-    ).set_duration(duration).fadein(0.5).fadeout(0.5)
+        fontsize=font_size + 20,
+        color="#F5F5F5",  # soft white
+        font='Arial-Bold',
+        method='label'
+    ).set_duration(duration)
     
     underline = TextClip(
         "━" * 20,
         fontsize=font_size // 2,
-        color="#F5F5F5",  # Soft white
+        color="#F5F5F5",
         method='label'
-    ).set_duration(duration).fadein(0.5).fadeout(0.5)
+    ).set_duration(duration)
+    
+    if fade:
+        heading = heading.fadein(0.5).fadeout(0.5)
+        underline = underline.fadein(0.5).fadeout(0.5)
     
     return heading, underline
 
 
 def create_text_clip(text, font_size, color, duration, screen_size):
-    """Create text without background box."""
+    """Create wrapped text without background box."""
     wrapped_text = "\n".join(textwrap.wrap(text, width=28))
     
     txt_clip = TextClip(
         wrapped_text,
         fontsize=font_size,
-        color="#F5F5F5",  # Soft white
+        color="#F5F5F5",  # soft white
         method='label',
         align='center'
     ).set_duration(duration).fadein(0.5).fadeout(0.5)
@@ -62,7 +66,7 @@ def create_short(sign):
     print(f"\n🔮 [{sign}] — starting...")
     screen_size = SHORTS_CONFIG['resolution']
     
-    sign_color = "#F5F5F5"  # Soft white for all text
+    sign_color = "#F5F5F5"  # soft white for all text
     
     TARGET_DURATION = 45
     print(f"  ⏱️ Duration: {TARGET_DURATION}s")
@@ -89,7 +93,7 @@ def create_short(sign):
             y1 = int(y_center - target_h / 2)
             bg_original = bg_original.crop(y1=y1, height=target_h)
     
-    # Loop if needed
+    # Loop background if needed
     if bg_original.duration < TARGET_DURATION:
         loops = int(TARGET_DURATION / bg_original.duration) + 1
         bg_clip = bg_original.loop(n=loops).subclip(0, TARGET_DURATION)
@@ -103,30 +107,30 @@ def create_short(sign):
     current_time = 0
     
     # Position settings
-    HEADING_Y = 300  # Keep heading as is
-    TEXT_Y = 910     # Pushed text 7 rows (~210px) down
+    HEADING_Y = 100  # moved heading upward
+    TEXT_Y = 910     # main text lower by ~7 lines
     
-    # 1. TITLE with Sign (5s)
+    # 1. TITLE with Sign — stays visible entire video
     title_heading, title_underline = create_heading(
         f"✨ {sign} ✨",
         TEXT_STYLE['title_font_size'],
         sign_color,
-        5,
-        screen_size
+        TARGET_DURATION,  # full duration
+        screen_size,
+        fade=False  # no fade
     )
-    title_heading = title_heading.set_position(('center', HEADING_Y)).set_start(current_time)
-    title_underline = title_underline.set_position(('center', HEADING_Y + 100)).set_start(current_time)
+    title_heading = title_heading.set_position(('center', HEADING_Y))
+    title_underline = title_underline.set_position(('center', HEADING_Y + 100))
     all_clips.extend([title_heading, title_underline])
     
-    # Date
+    # Date — stays visible entire video
     date_clip = TextClip(
         datetime.now().strftime("%d %b %Y"),
         fontsize=35,
-        color="#F5F5F5",  # Soft white
+        color="#F5F5F5",
         method='label'
-    ).set_duration(5).set_position(('center', HEADING_Y + 150)).set_start(current_time).fadein(0.5).fadeout(0.5)
+    ).set_duration(TARGET_DURATION).set_position(('center', HEADING_Y + 150))
     all_clips.append(date_clip)
-    current_time += 5
     
     # 2. HOROSCOPE (15s)
     horo_heading, horo_underline = create_heading(
@@ -193,10 +197,10 @@ def create_short(sign):
     ).set_position(('center', TEXT_Y)).set_start(current_time)
     all_clips.append(health_text)
     
-    # Composite
+    # Composite video
     final_video = CompositeVideoClip([bg_clip] + all_clips).set_duration(TARGET_DURATION)
     
-    # Add OM Mantra
+    # Add OM Mantra background audio
     if os.path.exists(VIDEO_CONFIG['background_music']):
         print(f"  🎵 Adding OM Mantra...")
         music = AudioFileClip(VIDEO_CONFIG['background_music']).volumex(VIDEO_CONFIG['music_volume'])
@@ -209,7 +213,7 @@ def create_short(sign):
         
         final_video = final_video.set_audio(music)
     
-    # Limit to 58s
+    # Limit to 58s if needed
     if final_video.duration > 58:
         final_video = final_video.subclip(0, 58)
     
