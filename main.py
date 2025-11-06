@@ -176,7 +176,7 @@ def create_text_chunks(text, font_size, screen_size, total_duration):
         wrapped_lines.extend(textwrap.wrap(line, width=32))
     
     # Split into chunks of 6-7 lines
-    LINES_PER_CHUNK = 6
+    LINES_PER_CHUNK = 8
     chunks = []
     
     for i in range(0, len(wrapped_lines), LINES_PER_CHUNK):
