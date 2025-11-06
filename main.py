@@ -111,9 +111,9 @@ def create_short(sign):
     TEXT_Y = 910           # main text 7 rows down (~210px lower)
     
     # Adjustments to avoid overlay
-    SIGN_Y = HEADING_Y + 60         # sign slightly down
-    DATE_Y = SIGN_Y + 80            # date just below sign
-    HORO_HEADING_Y = HEADING_Y - 60 # Daily Horoscope slightly up
+    SIGN_Y = HEADING_Y + 60          # sign slightly down
+    DATE_Y = SIGN_Y + 130            # date pushed further down to avoid overlap
+    HORO_HEADING_Y = HEADING_Y - 60  # Daily Horoscope slightly up
     
     # === 1. TITLE (SIGN + DATE) — visible entire video ===
     title_heading, title_underline = create_heading(
@@ -158,18 +158,7 @@ def create_short(sign):
     all_clips.append(horo_text)
     current_time += 15
     
-    # === 3. WEALTH (12s) ===
-    wealth_heading, wealth_underline = create_heading(
-        "💰 Wealth Guidance",
-        TEXT_STYLE['tip_font_size'],
-        sign_color,
-        12,
-        screen_size
-    )
-    wealth_heading = wealth_heading.set_position(('center', HEADING_Y)).set_start(current_time)
-    wealth_underline = wealth_underline.set_position(('center', HEADING_Y + 90)).set_start(current_time)
-    all_clips.extend([wealth_heading, wealth_underline])
-    
+    # === 3. WEALTH TEXT ONLY (12s) ===
     wealth_text = create_text_clip(
         "Do: Plan finances with Mercury's clarity. Strategic thinking favors you.\n\nDon't: Rush major investments. Patience brings returns.",
         TEXT_STYLE['tip_font_size'] - 5,
@@ -180,18 +169,7 @@ def create_short(sign):
     all_clips.append(wealth_text)
     current_time += 12
     
-    # === 4. HEALTH (13s) ===
-    health_heading, health_underline = create_heading(
-        "🏥 Wellness Blessing",
-        TEXT_STYLE['tip_font_size'],
-        sign_color,
-        13,
-        screen_size
-    )
-    health_heading = health_heading.set_position(('center', HEADING_Y)).set_start(current_time)
-    health_underline = health_underline.set_position(('center', HEADING_Y + 90)).set_start(current_time)
-    all_clips.extend([health_heading, health_underline])
-    
+    # === 4. HEALTH TEXT ONLY (13s) ===
     health_text = create_text_clip(
         "The Moon stirs emotions. Drink water mindfully and practice deep breathing. Blessings for vitality.",
         TEXT_STYLE['tip_font_size'] - 5,
