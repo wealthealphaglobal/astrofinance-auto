@@ -267,25 +267,28 @@ def create_short(sign):
 
 def main():
     print("="*60)
-    print("🌟 ASTROFINANCE DAILY")
+    print("🌟 ASTROFINANCE DAILY - TEST MODE")
     print("="*60)
     print(f"📅 {datetime.now().strftime('%B %d, %Y')}")
     print("="*60)
+    print("\n⚠️  TEST MODE: Generating only 1 short (Aries)\n")
     
-    created = []
-    for sign in ZODIAC_SIGNS:
-        try:
-            video = create_short(sign)
-            created.append(video)
-        except Exception as e:
-            print(f"  ❌ {sign} failed: {e}")
+    # TEST: Only generate Aries
+    TEST_SIGN = "Aries"
     
-    print("\n"+"="*60)
-    print(f"✅ {len(created)}/12 shorts completed!")
-    print("="*60)
-    for video in created:
-        print(f"   ✓ {os.path.basename(video)}")
-    print("\n💰 COST: $0.00")
+    try:
+        video = create_short(TEST_SIGN)
+        print("\n"+"="*60)
+        print(f"✅ TEST SUCCESSFUL!")
+        print("="*60)
+        print(f"📁 Video saved: {video}")
+        print(f"📥 Download from: {VIDEO_CONFIG['output_folder']}/youtube_shorts/")
+        print("\n💡 If this looks good, change TEST MODE to generate all 12 signs")
+        print("💰 COST: $0.00")
+    except Exception as e:
+        print(f"\n❌ TEST FAILED: {e}")
+        import traceback
+        traceback.print_exc()
 
 if __name__ == "__main__":
     main()
