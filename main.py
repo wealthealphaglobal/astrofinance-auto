@@ -2,7 +2,6 @@ import os
 from datetime import datetime
 import textwrap
 import yaml
-import random
 from moviepy.editor import VideoFileClip, AudioFileClip, TextClip, CompositeVideoClip
 from PIL import Image
 
@@ -19,51 +18,31 @@ SHORTS_CONFIG = CONFIG['platforms']['youtube']['shorts']
 TEXT_STYLE = CONFIG['text_style']
 ZODIAC_SIGNS = CONFIG['zodiac_signs']
 
-# Vibrant, eye-catching colors
-VIBRANT_COLORS = [
-    '#FFD700',  # Gold
-    '#FF6B9D',  # Pink
-    '#00E5FF',  # Cyan
-    '#FF9500',  # Orange
-    '#B388FF',  # Purple
-    '#69F0AE',  # Mint Green
-    '#FFE57F',  # Yellow
-    '#FF80AB',  # Rose
-    '#64FFDA',  # Turquoise
-    '#FFAB40',  # Amber
-    '#EA80FC',  # Lavender
-    '#82E9DE',  # Aqua
-]
-
 # Ensure output folders exist
 os.makedirs(VIDEO_CONFIG['output_folder'], exist_ok=True)
 os.makedirs(os.path.join(VIDEO_CONFIG['output_folder'], 'youtube_shorts'), exist_ok=True)
 os.makedirs(VIDEO_CONFIG['temp_folder'], exist_ok=True)
 
+
 def create_heading(text, font_size, color, duration, screen_size):
     """Create BOLD, BIGGER heading with underline - NO background box."""
-    # Main heading - BOLD and BIGGER
     heading = TextClip(
         text,
         fontsize=font_size + 20,  # Make it bigger
-        color=color,
+        color="#F5F5F5",  # Soft white
         font='Arial-Bold',  # Bold font
-        stroke_color='black',
-        stroke_width=5,  # Thicker stroke
         method='label'  # No background box
     ).set_duration(duration).fadein(0.5).fadeout(0.5)
     
-    # Underline
     underline = TextClip(
         "━" * 20,
         fontsize=font_size // 2,
-        color=color,
-        stroke_color='black',
-        stroke_width=3,
+        color="#F5F5F5",  # Soft white
         method='label'
     ).set_duration(duration).fadein(0.5).fadeout(0.5)
     
     return heading, underline
+
 
 def create_text_clip(text, font_size, color, duration, screen_size):
     """Create text without background box."""
@@ -72,21 +51,18 @@ def create_text_clip(text, font_size, color, duration, screen_size):
     txt_clip = TextClip(
         wrapped_text,
         fontsize=font_size,
-        color=color,  # Use vibrant color
-        stroke_color='black',
-        stroke_width=3,
-        method='label',  # NO background box
+        color="#F5F5F5",  # Soft white
+        method='label',
         align='center'
     ).set_duration(duration).fadein(0.5).fadeout(0.5)
     return txt_clip
+
 
 def create_short(sign):
     print(f"\n🔮 [{sign}] — starting...")
     screen_size = SHORTS_CONFIG['resolution']
     
-    # Pick vibrant color
-    sign_color = random.choice(VIBRANT_COLORS)
-    print(f"  🎨 Color: {sign_color}")
+    sign_color = "#F5F5F5"  # Soft white for all text
     
     TARGET_DURATION = 45
     print(f"  ⏱️ Duration: {TARGET_DURATION}s")
@@ -127,8 +103,8 @@ def create_short(sign):
     current_time = 0
     
     # Position settings
-    HEADING_Y = 300  # Heading stays here
-    TEXT_Y = 700     # Text 5-6 lines down (400px lower)
+    HEADING_Y = 300  # Keep heading as is
+    TEXT_Y = 910     # Pushed text 7 rows (~210px) down
     
     # 1. TITLE with Sign (5s)
     title_heading, title_underline = create_heading(
@@ -146,9 +122,7 @@ def create_short(sign):
     date_clip = TextClip(
         datetime.now().strftime("%d %b %Y"),
         fontsize=35,
-        color='white',
-        stroke_color='black',
-        stroke_width=2,
+        color="#F5F5F5",  # Soft white
         method='label'
     ).set_duration(5).set_position(('center', HEADING_Y + 150)).set_start(current_time).fadein(0.5).fadeout(0.5)
     all_clips.append(date_clip)
@@ -166,11 +140,10 @@ def create_short(sign):
     horo_underline = horo_underline.set_position(('center', HEADING_Y + 100)).set_start(current_time)
     all_clips.extend([horo_heading, horo_underline])
     
-    # Text in VIBRANT color, 5-6 lines down
     horo_text = create_text_clip(
         f"Namaste {sign}! The stars shine bright for you today. Planetary energy brings opportunities in relationships and career. Trust your intuition.",
         TEXT_STYLE['content_font_size'] - 5,
-        sign_color,  # VIBRANT COLOR for text
+        sign_color,
         15,
         screen_size
     ).set_position(('center', TEXT_Y)).set_start(current_time)
@@ -192,7 +165,7 @@ def create_short(sign):
     wealth_text = create_text_clip(
         "Do: Plan finances with Mercury's clarity. Strategic thinking favors you.\n\nDon't: Rush major investments. Patience brings returns.",
         TEXT_STYLE['tip_font_size'] - 5,
-        sign_color,  # VIBRANT COLOR
+        sign_color,
         12,
         screen_size
     ).set_position(('center', TEXT_Y)).set_start(current_time)
@@ -214,7 +187,7 @@ def create_short(sign):
     health_text = create_text_clip(
         "The Moon stirs emotions. Drink water mindfully and practice deep breathing. Blessings for vitality.",
         TEXT_STYLE['tip_font_size'] - 5,
-        sign_color,  # VIBRANT COLOR
+        sign_color,
         13,
         screen_size
     ).set_position(('center', TEXT_Y)).set_start(current_time)
@@ -265,6 +238,7 @@ def create_short(sign):
     
     return output_file
 
+
 def main():
     print("="*60)
     print("🌟 ASTROFINANCE DAILY - TEST MODE")
@@ -273,7 +247,6 @@ def main():
     print("="*60)
     print("\n⚠️  TEST MODE: Generating only 1 short (Aries)\n")
     
-    # TEST: Only generate Aries
     TEST_SIGN = "Aries"
     
     try:
@@ -289,6 +262,7 @@ def main():
         print(f"\n❌ TEST FAILED: {e}")
         import traceback
         traceback.print_exc()
+
 
 if __name__ == "__main__":
     main()
