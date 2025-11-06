@@ -54,7 +54,7 @@ def fetch_ai_content(prompt, sign):
                         {"role": "user", "content": formatted_prompt}
                     ],
                     "temperature": 0.7,
-                    "max_tokens": 150  # Shorter for better summaries
+                    "max_tokens": 150
                 },
                 timeout=15
             )
@@ -88,10 +88,8 @@ def fetch_ai_content(prompt, sign):
 
 def clean_and_summarize(text):
     """Clean AI response and make it more concise/natural"""
-    # Remove markdown and special chars
     text = text.replace("**", "").replace("*", "").replace("#", "").strip()
     
-    # Remove common prefixes
     prefixes = ["Here is", "Here's", "Today's", "For today", "Namaste"]
     for prefix in prefixes:
         if text.startswith(prefix):
@@ -99,14 +97,11 @@ def clean_and_summarize(text):
             if text.startswith(":") or text.startswith(","):
                 text = text[1:].strip()
     
-    # Split into sentences
     sentences = [s.strip() for s in text.replace("!", ".").replace("?", ".").split(".") if s.strip()]
     
-    # Keep first 3-4 sentences for natural paragraph flow
     if len(sentences) > 4:
         sentences = sentences[:4]
     
-    # Join back naturally
     result = ". ".join(sentences)
     if result and result[-1] not in ".!?":
         result += "."
@@ -118,19 +113,16 @@ def get_content_for_sign(sign):
     """Get horoscope, wealth, and health content"""
     print(f"    📝 Fetching content...")
     
-    # Horoscope
     horo = fetch_ai_content(CONFIG['free_ai']['prompts']['horoscope'], sign)
     if not horo:
         horo = f"Namaste {sign}! The stars shine bright for you today. Planetary energy brings opportunities in relationships and career. Trust your intuition."
     horo = clean_and_summarize(horo)
     
-    # Wealth
     wealth = fetch_ai_content(CONFIG['free_ai']['prompts']['wealth'], sign)
     if not wealth:
         wealth = "Do: Plan finances with Mercury's clarity. Don't: Rush major investments today."
     wealth = clean_and_summarize(wealth)
     
-    # Health
     health = fetch_ai_content(CONFIG['free_ai']['prompts']['health'], sign)
     if not health:
         health = "The Moon stirs emotions today. Drink water mindfully and practice deep breathing for balance."
@@ -162,43 +154,56 @@ def create_heading(text, font_size, color, duration, screen_size, fade=True):
     ).set_duration(duration)
     
     if fade:
-        heading = heading.fadein(0.5).fadeout(0.5)
-        underline = underline.fadein(0.5).fadeout(0.5)
+        heading = heading.fadein(0.8).fadeout(0.8)  # Slower fade
+        underline = underline.fadein(0.8).fadeout(0.8)
     
     return heading, underline
 
 
 def create_text_chunks(text, font_size, screen_size, total_duration):
-    """Split text into chunks of 8-9 lines with fade transitions"""
-    # Wrap text to fit screen width
+    """Split text into chunks of 8-9 lines with SLOWER fade transitions"""
+    # Wrap text to fit screen - using 35 chars per line for more text
     wrapped_lines = []
     for line in text.split('\n'):
-        wrapped_lines.extend(textwrap.wrap(line, width=32))
+        if line.strip():
+            wrapped_lines.extend(textwrap.wrap(line, width=35))
     
-    # Split into chunks of 8-9 lines
-    LINES_PER_CHUNK = 9  # Changed from 6 to 9
-    chunks = []
+    # Force minimum lines if content is short
+    if len(wrapped_lines) < 8:
+        # If too short, just show all at once
+        chunks = ["\n".join(wrapped_lines)]
+    else:
+        # Split into chunks of 8-9 lines
+        LINES_PER_CHUNK = 9
+        chunks = []
+        
+        for i in range(0, len(wrapped_lines), LINES_PER_CHUNK):
+            chunk_lines = wrapped_lines[i:i + LINES_PER_CHUNK]
+            chunk_text = "\n".join(chunk_lines)
+            chunks.append(chunk_text)
     
-    for i in range(0, len(wrapped_lines), LINES_PER_CHUNK):
-        chunk_lines = wrapped_lines[i:i + LINES_PER_CHUNK]
-        chunk_text = "\n".join(chunk_lines)
-        chunks.append(chunk_text)
+    print(f"      📄 Split into {len(chunks)} chunk(s)")
     
-    # Calculate duration per chunk
-    chunk_duration = total_duration / len(chunks) if chunks else total_duration
+    # Calculate duration per chunk with slower transitions
+    chunk_duration = total_duration / len(chunks) if len(chunks) > 0 else total_duration
     
     # Create clips for each chunk
     text_clips = []
     current_time = 0
     
-    for chunk in chunks:
+    for i, chunk in enumerate(chunks):
+        print(f"      Chunk {i+1}: {len(chunk.split(chr(10)))} lines")
+        
         clip = TextClip(
             chunk,
             fontsize=font_size,
             color="#F5F5F5",
             method='label',
             align='center'
-        ).set_duration(chunk_duration).set_start(current_time).fadein(0.5).fadeout(0.5)
+        ).set_duration(chunk_duration).set_start(current_time)
+        
+        # Slower fade: 1 second in, 1 second out
+        clip = clip.fadein(1.0).fadeout(1.0)
         
         text_clips.append(clip)
         current_time += chunk_duration
@@ -207,17 +212,18 @@ def create_text_chunks(text, font_size, screen_size, total_duration):
 
 
 def create_short(sign, content):
-    """Create short with chunked text and fade transitions"""
+    """Create short with proper timing: 54s content + 5s subscribe = 59s total"""
     print(f"\n🔮 [{sign}] — starting...")
     screen_size = SHORTS_CONFIG['resolution']
     
     sign_color = "#F5F5F5"
     
-    MAIN_DURATION = 45
-    SUBSCRIBE_DURATION = 10
-    TARGET_DURATION = MAIN_DURATION + SUBSCRIBE_DURATION
+    # NEW TIMING: 54 seconds content + 5 seconds subscribe = 59 total
+    MAIN_DURATION = 54  # Extended from 45
+    SUBSCRIBE_DURATION = 5  # Reduced from 10
+    TARGET_DURATION = MAIN_DURATION + SUBSCRIBE_DURATION  # 59 seconds
     
-    print(f"  ⏱️ Duration: {TARGET_DURATION}s (45s + 10s subscribe)")
+    print(f"  ⏱️ Duration: {TARGET_DURATION}s ({MAIN_DURATION}s content + {SUBSCRIBE_DURATION}s subscribe)")
     
     # Load background
     bg_original = VideoFileClip(VIDEO_CONFIG['background_video'])
@@ -260,7 +266,7 @@ def create_short(sign, content):
     DATE_Y = SIGN_Y + 130
     HORO_HEADING_Y = HEADING_Y - 60
     
-    # 1. TITLE (SIGN + DATE) — visible for 45s
+    # 1. TITLE (SIGN + DATE) — visible for 54s
     title_heading, title_underline = create_heading(
         f"✨ {sign} ✨",
         TEXT_STYLE['title_font_size'],
@@ -281,44 +287,49 @@ def create_short(sign, content):
     ).set_duration(MAIN_DURATION).set_position(('center', DATE_Y))
     all_clips.append(date_clip)
     
-    # 2. HOROSCOPE (15s) - Chunked with fade
+    # 2. HOROSCOPE (20s) - More time, chunked with SLOW fade
     horo_heading, horo_underline = create_heading(
         "🌙 Daily Horoscope",
         TEXT_STYLE['content_font_size'],
         sign_color,
-        15,
+        20,  # Extended from 15
         screen_size
     )
     horo_heading = horo_heading.set_position(('center', HORO_HEADING_Y)).set_start(current_time)
     horo_underline = horo_underline.set_position(('center', HORO_HEADING_Y + 100)).set_start(current_time)
     all_clips.extend([horo_heading, horo_underline])
     
-    # Create chunked text clips for horoscope
-    horo_chunks = create_text_chunks(content['horoscope'], TEXT_STYLE['content_font_size'] - 5, screen_size, 15)
+    print(f"    Creating horoscope chunks...")
+    horo_chunks = create_text_chunks(content['horoscope'], TEXT_STYLE['content_font_size'] - 5, screen_size, 20)
     for chunk in horo_chunks:
-        chunk = chunk.set_position(('center', TEXT_Y)).set_start(current_time + chunk.start)
-        all_clips.append(chunk)
-    current_time += 15
+        chunk = chunk.set_position(('center', TEXT_Y))
+        chunk_with_offset = chunk.set_start(current_time + chunk.start)
+        all_clips.append(chunk_with_offset)
+    current_time += 20
     
-    # 3. WEALTH (12s) - Chunked with fade
-    wealth_chunks = create_text_chunks(content['wealth'], TEXT_STYLE['tip_font_size'] - 5, screen_size, 12)
+    # 3. WEALTH (17s) - Extended, chunked with SLOW fade
+    print(f"    Creating wealth chunks...")
+    wealth_chunks = create_text_chunks(content['wealth'], TEXT_STYLE['tip_font_size'] - 5, screen_size, 17)
     for chunk in wealth_chunks:
-        chunk = chunk.set_position(('center', TEXT_Y)).set_start(current_time + chunk.start)
-        all_clips.append(chunk)
-    current_time += 12
+        chunk = chunk.set_position(('center', TEXT_Y))
+        chunk_with_offset = chunk.set_start(current_time + chunk.start)
+        all_clips.append(chunk_with_offset)
+    current_time += 17
     
-    # 4. HEALTH (13s) - Chunked with fade
-    health_chunks = create_text_chunks(content['health'], TEXT_STYLE['tip_font_size'] - 5, screen_size, 13)
+    # 4. HEALTH (17s) - Extended, chunked with SLOW fade
+    print(f"    Creating health chunks...")
+    health_chunks = create_text_chunks(content['health'], TEXT_STYLE['tip_font_size'] - 5, screen_size, 17)
     for chunk in health_chunks:
-        chunk = chunk.set_position(('center', TEXT_Y)).set_start(current_time + chunk.start)
-        all_clips.append(chunk)
-    current_time += 13
+        chunk = chunk.set_position(('center', TEXT_Y))
+        chunk_with_offset = chunk.set_start(current_time + chunk.start)
+        all_clips.append(chunk_with_offset)
+    current_time += 17  # Now at 54 seconds
     
-    # 5. SUBSCRIBE SCREEN (10s) - Text based
-    print(f"  📺 Adding subscribe text...")
+    # 5. SUBSCRIBE SCREEN (5s) - Shorter, last 5 seconds
+    print(f"  📺 Adding subscribe (5s)...")
     sub_text = TextClip(
-        "🔔 SUBSCRIBE\n\nLIKE • SHARE • COMMENT\n\nFor Daily Cosmic Guidance ✨",
-        fontsize=55,
+        "🔔 SUBSCRIBE\n\nLIKE • SHARE • COMMENT",
+        fontsize=60,
         color="#FFD700",
         font='Arial-Bold',
         method='label',
@@ -341,10 +352,6 @@ def create_short(sign, content):
             music = music.subclip(0, TARGET_DURATION)
         
         final_video = final_video.set_audio(music)
-    
-    # Ensure under 58s
-    if final_video.duration > 58:
-        final_video = final_video.subclip(0, 58)
     
     output_file = os.path.join(
         VIDEO_CONFIG['output_folder'], 
