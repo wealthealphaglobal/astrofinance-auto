@@ -125,19 +125,18 @@ jobs:
         if: always()
         with:
           name: astrofinance-videos-${{ github.run_number }}
-          path: videos/
+          path: videos/youtube_shorts/
           retention-days: 7
 
-      # 1️⃣2️⃣ Upload metadata
+      # 1️⃣2️⃣ Upload metadata (only if exists)
       - name: Upload metadata
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: metadata-${{ github.run_number }}
-          path: |
-            videos/metadata.json
-            videos/upload_results.json
-          retention-days: 30
+          path: videos/youtube_shorts/*.mp4
+          retention-days: 7
+          if-no-files-found: warn
 
       # 1️⃣3️⃣ Clean up temp files
       - name: Cleanup
