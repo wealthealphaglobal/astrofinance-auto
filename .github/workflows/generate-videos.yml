@@ -28,7 +28,7 @@ jobs:
           python-version: '3.10'
       - run: sudo apt-get update && sudo apt-get install -y ffmpeg imagemagick && sudo sed -i '/<policy domain="path" rights="none" pattern="@\*"/d' /etc/ImageMagick-6/policy.xml
       - run: pip install -r requirements.txt
-      - run: mkdir -p videos/youtube_shorts/
+      - run: mkdir -p videos/youtube_shorts/ videos/instagram_reels/
       - run: python generate_short.py --sign "Aries"
         env:
           HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}
@@ -38,7 +38,8 @@ jobs:
           YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
           YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
-        if: env.YOUTUBE_CLIENT_ID != ''
+        if: env.YOUTUBE_CLIENT_ID != '' && github.event.inputs.auto_upload != 'false'
+        continue-on-error: true
       - name: Upload YouTube Shorts artifact (backup)
         uses: actions/upload-artifact@v4
         if: always()
@@ -68,7 +69,7 @@ jobs:
           python-version: '3.10'
       - run: sudo apt-get update && sudo apt-get install -y ffmpeg imagemagick && sudo sed -i '/<policy domain="path" rights="none" pattern="@\*"/d' /etc/ImageMagick-6/policy.xml
       - run: pip install -r requirements.txt
-      - run: mkdir -p videos/youtube_shorts/
+      - run: mkdir -p videos/youtube_shorts/ videos/instagram_reels/
       - run: python generate_short.py --sign "Taurus"
         env:
           HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}
@@ -79,11 +80,19 @@ jobs:
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
           YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
         if: env.YOUTUBE_CLIENT_ID != '' && github.event.inputs.auto_upload != 'false'
+        continue-on-error: true
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: astrofinance-taurus
+          name: astrofinance-backup-taurus
           path: videos/youtube_shorts/Taurus_*.mp4
+          retention-days: 7
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: astrofinance-insta-taurus
+          path: videos/instagram_reels/Taurus_*.mp4
           retention-days: 7
           if-no-files-found: warn
 
@@ -98,7 +107,7 @@ jobs:
           python-version: '3.10'
       - run: sudo apt-get update && sudo apt-get install -y ffmpeg imagemagick && sudo sed -i '/<policy domain="path" rights="none" pattern="@\*"/d' /etc/ImageMagick-6/policy.xml
       - run: pip install -r requirements.txt
-      - run: mkdir -p videos/youtube_shorts/
+      - run: mkdir -p videos/youtube_shorts/ videos/instagram_reels/
       - run: python generate_short.py --sign "Gemini"
         env:
           HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}
@@ -109,11 +118,19 @@ jobs:
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
           YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
         if: env.YOUTUBE_CLIENT_ID != '' && github.event.inputs.auto_upload != 'false'
+        continue-on-error: true
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: astrofinance-gemini
+          name: astrofinance-backup-gemini
           path: videos/youtube_shorts/Gemini_*.mp4
+          retention-days: 7
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: astrofinance-insta-gemini
+          path: videos/instagram_reels/Gemini_*.mp4
           retention-days: 7
           if-no-files-found: warn
 
@@ -128,7 +145,7 @@ jobs:
           python-version: '3.10'
       - run: sudo apt-get update && sudo apt-get install -y ffmpeg imagemagick && sudo sed -i '/<policy domain="path" rights="none" pattern="@\*"/d' /etc/ImageMagick-6/policy.xml
       - run: pip install -r requirements.txt
-      - run: mkdir -p videos/youtube_shorts/
+      - run: mkdir -p videos/youtube_shorts/ videos/instagram_reels/
       - run: python generate_short.py --sign "Cancer"
         env:
           HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}
@@ -139,11 +156,19 @@ jobs:
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
           YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
         if: env.YOUTUBE_CLIENT_ID != '' && github.event.inputs.auto_upload != 'false'
+        continue-on-error: true
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: astrofinance-cancer
+          name: astrofinance-backup-cancer
           path: videos/youtube_shorts/Cancer_*.mp4
+          retention-days: 7
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: astrofinance-insta-cancer
+          path: videos/instagram_reels/Cancer_*.mp4
           retention-days: 7
           if-no-files-found: warn
 
@@ -158,7 +183,7 @@ jobs:
           python-version: '3.10'
       - run: sudo apt-get update && sudo apt-get install -y ffmpeg imagemagick && sudo sed -i '/<policy domain="path" rights="none" pattern="@\*"/d' /etc/ImageMagick-6/policy.xml
       - run: pip install -r requirements.txt
-      - run: mkdir -p videos/youtube_shorts/
+      - run: mkdir -p videos/youtube_shorts/ videos/instagram_reels/
       - run: python generate_short.py --sign "Leo"
         env:
           HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}
@@ -169,11 +194,19 @@ jobs:
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
           YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
         if: env.YOUTUBE_CLIENT_ID != '' && github.event.inputs.auto_upload != 'false'
+        continue-on-error: true
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: astrofinance-leo
+          name: astrofinance-backup-leo
           path: videos/youtube_shorts/Leo_*.mp4
+          retention-days: 7
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: astrofinance-insta-leo
+          path: videos/instagram_reels/Leo_*.mp4
           retention-days: 7
           if-no-files-found: warn
 
@@ -188,7 +221,7 @@ jobs:
           python-version: '3.10'
       - run: sudo apt-get update && sudo apt-get install -y ffmpeg imagemagick && sudo sed -i '/<policy domain="path" rights="none" pattern="@\*"/d' /etc/ImageMagick-6/policy.xml
       - run: pip install -r requirements.txt
-      - run: mkdir -p videos/youtube_shorts/
+      - run: mkdir -p videos/youtube_shorts/ videos/instagram_reels/
       - run: python generate_short.py --sign "Virgo"
         env:
           HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}
@@ -199,11 +232,19 @@ jobs:
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
           YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
         if: env.YOUTUBE_CLIENT_ID != '' && github.event.inputs.auto_upload != 'false'
+        continue-on-error: true
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: astrofinance-virgo
+          name: astrofinance-backup-virgo
           path: videos/youtube_shorts/Virgo_*.mp4
+          retention-days: 7
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: astrofinance-insta-virgo
+          path: videos/instagram_reels/Virgo_*.mp4
           retention-days: 7
           if-no-files-found: warn
 
@@ -218,7 +259,7 @@ jobs:
           python-version: '3.10'
       - run: sudo apt-get update && sudo apt-get install -y ffmpeg imagemagick && sudo sed -i '/<policy domain="path" rights="none" pattern="@\*"/d' /etc/ImageMagick-6/policy.xml
       - run: pip install -r requirements.txt
-      - run: mkdir -p videos/youtube_shorts/
+      - run: mkdir -p videos/youtube_shorts/ videos/instagram_reels/
       - run: python generate_short.py --sign "Libra"
         env:
           HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}
@@ -229,11 +270,19 @@ jobs:
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
           YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
         if: env.YOUTUBE_CLIENT_ID != '' && github.event.inputs.auto_upload != 'false'
+        continue-on-error: true
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: astrofinance-libra
+          name: astrofinance-backup-libra
           path: videos/youtube_shorts/Libra_*.mp4
+          retention-days: 7
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: astrofinance-insta-libra
+          path: videos/instagram_reels/Libra_*.mp4
           retention-days: 7
           if-no-files-found: warn
 
@@ -248,7 +297,7 @@ jobs:
           python-version: '3.10'
       - run: sudo apt-get update && sudo apt-get install -y ffmpeg imagemagick && sudo sed -i '/<policy domain="path" rights="none" pattern="@\*"/d' /etc/ImageMagick-6/policy.xml
       - run: pip install -r requirements.txt
-      - run: mkdir -p videos/youtube_shorts/
+      - run: mkdir -p videos/youtube_shorts/ videos/instagram_reels/
       - run: python generate_short.py --sign "Scorpio"
         env:
           HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}
@@ -259,11 +308,19 @@ jobs:
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
           YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
         if: env.YOUTUBE_CLIENT_ID != '' && github.event.inputs.auto_upload != 'false'
+        continue-on-error: true
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: astrofinance-scorpio
+          name: astrofinance-backup-scorpio
           path: videos/youtube_shorts/Scorpio_*.mp4
+          retention-days: 7
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: astrofinance-insta-scorpio
+          path: videos/instagram_reels/Scorpio_*.mp4
           retention-days: 7
           if-no-files-found: warn
 
@@ -278,7 +335,7 @@ jobs:
           python-version: '3.10'
       - run: sudo apt-get update && sudo apt-get install -y ffmpeg imagemagick && sudo sed -i '/<policy domain="path" rights="none" pattern="@\*"/d' /etc/ImageMagick-6/policy.xml
       - run: pip install -r requirements.txt
-      - run: mkdir -p videos/youtube_shorts/
+      - run: mkdir -p videos/youtube_shorts/ videos/instagram_reels/
       - run: python generate_short.py --sign "Sagittarius"
         env:
           HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}
@@ -289,11 +346,19 @@ jobs:
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
           YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
         if: env.YOUTUBE_CLIENT_ID != '' && github.event.inputs.auto_upload != 'false'
+        continue-on-error: true
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: astrofinance-sagittarius
+          name: astrofinance-backup-sagittarius
           path: videos/youtube_shorts/Sagittarius_*.mp4
+          retention-days: 7
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: astrofinance-insta-sagittarius
+          path: videos/instagram_reels/Sagittarius_*.mp4
           retention-days: 7
           if-no-files-found: warn
 
@@ -308,7 +373,7 @@ jobs:
           python-version: '3.10'
       - run: sudo apt-get update && sudo apt-get install -y ffmpeg imagemagick && sudo sed -i '/<policy domain="path" rights="none" pattern="@\*"/d' /etc/ImageMagick-6/policy.xml
       - run: pip install -r requirements.txt
-      - run: mkdir -p videos/youtube_shorts/
+      - run: mkdir -p videos/youtube_shorts/ videos/instagram_reels/
       - run: python generate_short.py --sign "Capricorn"
         env:
           HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}
@@ -319,11 +384,19 @@ jobs:
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
           YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
         if: env.YOUTUBE_CLIENT_ID != '' && github.event.inputs.auto_upload != 'false'
+        continue-on-error: true
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: astrofinance-capricorn
+          name: astrofinance-backup-capricorn
           path: videos/youtube_shorts/Capricorn_*.mp4
+          retention-days: 7
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: astrofinance-insta-capricorn
+          path: videos/instagram_reels/Capricorn_*.mp4
           retention-days: 7
           if-no-files-found: warn
 
@@ -338,7 +411,7 @@ jobs:
           python-version: '3.10'
       - run: sudo apt-get update && sudo apt-get install -y ffmpeg imagemagick && sudo sed -i '/<policy domain="path" rights="none" pattern="@\*"/d' /etc/ImageMagick-6/policy.xml
       - run: pip install -r requirements.txt
-      - run: mkdir -p videos/youtube_shorts/
+      - run: mkdir -p videos/youtube_shorts/ videos/instagram_reels/
       - run: python generate_short.py --sign "Aquarius"
         env:
           HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}
@@ -349,11 +422,19 @@ jobs:
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
           YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
         if: env.YOUTUBE_CLIENT_ID != '' && github.event.inputs.auto_upload != 'false'
+        continue-on-error: true
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: astrofinance-aquarius
+          name: astrofinance-backup-aquarius
           path: videos/youtube_shorts/Aquarius_*.mp4
+          retention-days: 7
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: astrofinance-insta-aquarius
+          path: videos/instagram_reels/Aquarius_*.mp4
           retention-days: 7
           if-no-files-found: warn
 
@@ -368,7 +449,7 @@ jobs:
           python-version: '3.10'
       - run: sudo apt-get update && sudo apt-get install -y ffmpeg imagemagick && sudo sed -i '/<policy domain="path" rights="none" pattern="@\*"/d' /etc/ImageMagick-6/policy.xml
       - run: pip install -r requirements.txt
-      - run: mkdir -p videos/youtube_shorts/
+      - run: mkdir -p videos/youtube_shorts/ videos/instagram_reels/
       - run: python generate_short.py --sign "Pisces"
         env:
           HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}
@@ -379,10 +460,18 @@ jobs:
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
           YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
         if: env.YOUTUBE_CLIENT_ID != '' && github.event.inputs.auto_upload != 'false'
+        continue-on-error: true
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: astrofinance-pisces
+          name: astrofinance-backup-pisces
           path: videos/youtube_shorts/Pisces_*.mp4
+          retention-days: 7
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: astrofinance-insta-pisces
+          path: videos/instagram_reels/Pisces_*.mp4
           retention-days: 7
           if-no-files-found: warn
