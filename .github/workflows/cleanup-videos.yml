@@ -1,0 +1,96 @@
+name: Cleanup Old Videos
+
+on:
+  schedule:
+    - cron: '0 22 * * *'  # Daily at 10 PM UTC (next day, 4 AM Australia time)
+  workflow_dispatch:
+    inputs:
+      cleanup_type:
+        description: 'What to cleanup?'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - 'all'
+          - 'youtube'
+          - 'instagram'
+          - 'temp'
+
+permissions:
+  contents: read
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Show disk usage before cleanup
+        run: |
+          echo "📊 DISK USAGE BEFORE"
+          df -h
+
+      - name: Show video inventory
+        run: |
+          echo "📁 Video Files:"
+          ls -lh videos/youtube_shorts/ 2>/dev/null || echo "No YouTube Shorts"
+          ls -lh videos/instagram_reels/ 2>/dev/null || echo "No Instagram Reels"
+          ls -lh temp/ 2>/dev/null || echo "No temp files"
+
+      - name: Cleanup videos (all)
+        if: github.event.inputs.cleanup_type == 'all' || github.event_name == 'schedule'
+        run: |
+          python cleanup.py all
+          echo ""
+          echo "Cleanup type: ALL"
+
+      - name: Cleanup videos (youtube)
+        if: github.event.inputs.cleanup_type == 'youtube'
+        run: |
+          python cleanup.py youtube --older-than 24
+          echo ""
+          echo "Cleanup type: YouTube Shorts (older than 24h)"
+
+      - name: Cleanup videos (instagram)
+        if: github.event.inputs.cleanup_type == 'instagram'
+        run: |
+          python cleanup.py instagram --older-than 168
+          echo ""
+          echo "Cleanup type: Instagram Reels (older than 168h = 7 days)"
+
+      - name: Cleanup videos (temp)
+        if: github.event.inputs.cleanup_type == 'temp'
+        run: |
+          python cleanup.py temp
+          echo ""
+          echo "Cleanup type: Temp files"
+
+      - name: Show disk usage after cleanup
+        if: always()
+        run: |
+          echo ""
+          echo "📊 DISK USAGE AFTER"
+          df -h
+          echo ""
+          echo "📁 Remaining Video Files:"
+          ls -lh videos/youtube_shorts/ 2>/dev/null || echo "No YouTube Shorts"
+          ls -lh videos/instagram_reels/ 2>/dev/null || echo "No Instagram Reels"
+          ls -lh temp/ 2>/dev/null || echo "No temp files"
+
+      - name: Workflow summary
+        if: always()
+        run: |
+          echo "## 🧹 Cleanup Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Cleanup Type:** ${{ github.event.inputs.cleanup_type || 'all (scheduled)' }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Time:** $(date +'%B %d, %Y %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Old videos deleted to save disk space" >> $GITHUB_STEP_SUMMARY
