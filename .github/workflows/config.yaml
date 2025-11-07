@@ -1,216 +1,73 @@
-# ========================================
-# ASTROFINANCE CONTENT CREATOR CONFIG
-# ========================================
+# Add these prompts to your config.yaml under "free_ai" section
 
-# Video Generation Settings
-video:
-  youtube_duration: 2400  # 40 minutes (in seconds)
-  shorts_duration: 60     # 60 seconds for shorts/reels
-  background_video: "background.mp4"
-  background_music: "om_mantra.mp3"  # Place your OM Mantra audio file here
-  music_volume: 0.2  # Keep it subtle (0.0 to 1.0)
-  output_folder: "videos"
-  temp_folder: "temp"
-
-# Platform Configurations
-platforms:
-  youtube:
-    enabled: true
-    long_form:
-      resolution: [1920, 1080]  # Full HD Landscape
-      fps: 30
-      duration: 2400  # 40 minutes (all 12 signs)
-      create: true
-    shorts:
-      resolution: [1080, 1920]  # Vertical 9:16
-      fps: 30
-      duration: 59  # MUST be under 60 seconds for YouTube Shorts
-      create: true
-      count: 12  # One short per zodiac sign
-    auto_upload: false  # Set to true when ready
-    
-  instagram:
-    enabled: false  # Disable to keep it simple
-    
-  tiktok:
-    enabled: false  # Disable to keep it simple
-    
-  twitter:
-    enabled: false  # Disable to keep it simple
-
-# Content Timing (for YouTube long-form video)
-timing:
-  per_sign_duration: 180  # 3 minutes per zodiac sign = 36 mins total
-  intro_duration: 60      # 1 min intro
-  outro_duration: 60      # 1 min outro + call to action
-  transition_duration: 2  # 2 seconds between signs
-
-# Zodiac Signs
-zodiac_signs:
-  - Aries
-  - Taurus
-  - Gemini
-  - Cancer
-  - Leo
-  - Virgo
-  - Libra
-  - Scorpio
-  - Sagittarius
-  - Capricorn
-  - Aquarius
-  - Pisces
-
-# Free AI Content Generation
 free_ai:
-  # Using HuggingFace's NEW Inference Router (Nov 2025+)
   provider: "huggingface"
   
-  # Primary: DeepSeek (Excellent and FREE!)
-  api_url: "https://router.huggingface.co/hf-inference/models/deepseek-ai/DeepSeek-V3"
-  # API key is FREE from huggingface.co - set in GitHub Secrets as HUGGINGFACE_API_KEY
-  # Get it from: https://huggingface.co/settings/tokens (completely free!)
-  
-  # Backup 1: OpenAI models via HuggingFace router (also free!)
-  openai_url: "https://router.huggingface.co/hf-inference/models/openai-community/gpt2-large"
-  
-  # Backup 2: Groq (independent provider)
-  backup_provider: "groq"
-  groq_api_url: "https://api.groq.com/openai/v1/chat/completions"
-  groq_model: "llama-3.3-70b-versatile"
-  # FREE API key from console.groq.com
-  
-  # Prompts for content generation
+  # Indian Astrologer Prompts (New - Warm & Devotional)
   prompts:
+    
+    # GENERAL HOROSCOPE (20 seconds)
     horoscope: |
-      Generate a detailed daily horoscope for {sign} that is spiritual, insightful, and positive. 
-      Focus on: personal growth, relationships, career opportunities, and cosmic energy.
-      Make it 3-4 sentences, engaging and mystical in tone.
+      You are a traditional Indian astrologer speaking in a warm, devotional tone — like a friendly Pandit giving daily guidance to the zodiac sign {sign} on {date}.
       
+      Create a 20-second video script that sounds natural and heartfelt, as if spoken on an Indian astrology YouTube channel.
+      
+      Structure it like this:
+      1. Opening Blessing (1 line): Begin with a greeting rooted in Indian style (e.g., "Namaste {sign}, today's grahas bring divine guidance for you.").
+      2. Daily Insight (3-4 sentences): Briefly share what the stars indicate today — mood, relationships, and work. Mention planetary vibes (e.g., Moon in Leo brings emotional warmth).
+      3. Advice (1 line): End with gentle counsel, something spiritual or uplifting (e.g., "Offer water to Surya Dev and stay confident.").
+      4. Outro (1 line): Close with a friendly call — "{sign}, god will bless you"
+      
+      Keep the tone spiritual yet positive, simple English. Output only the final narration.
+
+    # WEALTH HOROSCOPE (15-20 seconds)
     wealth: |
-      Generate 3 practical wealth and financial tips for {sign} for today.
-      Include: money management, investment mindset, and financial opportunities.
-      Make it specific to {sign}'s traits and strengths.
-      Format as 3 separate bullet points.
+      You are a wise Indian astrologer creating a financial forecast for {sign} on {date}.
+      Use a warm, devotional tone as if guiding family about money and prosperity.
       
+      Structure:
+      1. Blessing Opening (1 line): Greet warmly (e.g., "Namaskar {sign}, Lakshmi's grace shines on your finances today.").
+      2. Insight (3-4 sentences): What do the grahas suggest about money, investments, and opportunities? Mention Jupiter or Mercury influences. Keep it spiritual yet practical.
+      3. Remedy (1 line): Suggest a simple spiritual practice (e.g., "Offer yellow flowers to Lord Kuber for prosperity.").
+      4. Closing (1 line): End warmly (e.g., "May wealth flow to you abundantly, {sign}.").
+      
+      Keep language simple, positive, and rooted in Indian wisdom. Output only the narration script.
+
+    # HEALTH HOROSCOPE (15 seconds)
     health: |
-      Generate 3 health and wellness tips specifically for {sign} for today.
-      Include: physical health, mental wellness, and lifestyle recommendations.
-      Focus on {sign}'s traditional health associations.
-      Format as 3 separate bullet points.
+      You are a compassionate Indian astrologer creating a 15-second health forecast for {sign} on {date}.
+      Use a warm, caring tone as if guiding someone like family.
+      
+      Structure:
+      1. Intro (1 line): A short blessing-style greeting (e.g., "Namaskar {sign}, let's see how your health stars shine today.").
+      2. Insight (2-3 sentences): Explain what the grahas suggest about health — energy, stress, rest, or vitality. Mention Moon or Mars influences where fitting.
+      3. Remedy (1 line): Give one simple spiritual practice (e.g., "Do pranayama or offer Tulsi water to Lord Vishnu.").
+      4. Blessing (1 line): Close warmly (e.g., "May your body stay strong and balanced, {sign}.").
+      
+      Make it soothing, positive, and spiritually flavored. Output only the script ready for narration.
 
-# Text Styling
-text_style:
-  title_font_size: 90
-  subtitle_font_size: 60
-  content_font_size: 50
-  tip_font_size: 45
-  font_color: [255, 255, 255]  # White
-  shadow_color: [0, 0, 0]  # Black shadow for readability
-  background_opacity: 180  # Semi-transparent text background (0-255)
+    # LOVE & RELATIONSHIPS (15-20 seconds) - OPTIONAL
+    love: |
+      You are a caring Indian astrologer creating love and relationship guidance for {sign} on {date}.
+      Use a warm, devotional tone as if sharing ancient wisdom with a friend.
+      
+      Structure:
+      1. Opening (1 line): Greet warmly (e.g., "Namaskar {sign}, Venus smiles on your heart today.").
+      2. Insight (3-4 sentences): What do the stars say about relationships, connections, and matters of the heart? Mention Venus or Mars influences.
+      3. Advice (1 line): Suggest a loving practice (e.g., "Meditate on unconditional love and be kind to those around you.").
+      4. Closing (1 line): End with blessing (e.g., "May love and harmony bless your relationships, {sign}.").
+      
+      Keep it spiritual, warm, and simple. Output only the narration.
 
-# Branding
-branding:
-  channel_name: "AstroFinance Daily"
-  tagline: "Where Cosmos Meets Cash"
-  watermark_text: "🌟 AstroFinance"
-  watermark_position: "top-right"
-  logo_file: null  # Optional: path to logo image
-  
-# Video Metadata Templates
-metadata:
-  youtube_long:
-    title: "Daily Horoscope & Financial Guidance for All Zodiac Signs | {date}"
-    description: |
-      🌟 Welcome to AstroFinance Daily! 🌟
+    # CAREER & SUCCESS (15-20 seconds) - OPTIONAL
+    career: |
+      You are an inspiring Indian astrologer creating career guidance for {sign} on {date}.
+      Use a warm, motivational tone grounded in spiritual wisdom.
       
-      Get your complete daily horoscope with wealth and health guidance for all 12 zodiac signs.
+      Structure:
+      1. Opening (1 line): Begin warmly (e.g., "Namaskar {sign}, the Sun energizes your career path today.").
+      2. Insight (3-4 sentences): What do the grahas indicate about work, success, and opportunities? Mention relevant planetary influences.
+      3. Action (1 line): Suggest a positive step (e.g., "Take bold action and trust your abilities.").
+      4. Closing (1 line): End with encouragement (e.g., "Success is yours to claim, {sign}.").
       
-      📅 Date: {date}
-      
-      ⏰ TIMESTAMPS:
-      {timestamps}
-      
-      💰 WHAT YOU'LL GET:
-      ✨ Detailed daily horoscope for your sign
-      💵 Wealth and investment tips
-      🏥 Health and wellness guidance
-      📊 Market insights and financial astrology
-      
-      🔔 Subscribe for daily cosmic guidance!
-      👍 Like if this resonates with you
-      💬 Comment your zodiac sign below
-      
-      #Horoscope #Astrology #Finance #Wealth #Health #Zodiac #DailyHoroscope #FinancialAstrology
-      
-      ⚠️ Disclaimer: This content is for entertainment purposes only. Always consult licensed financial advisors and healthcare professionals for serious decisions.
-    tags:
-      - horoscope
-      - daily horoscope
-      - astrology
-      - zodiac signs
-      - financial astrology
-      - wealth tips
-      - health tips
-      - cosmic guidance
-      - spiritual finance
-      
-  youtube_shorts:
-    title: "{sign} Daily Horoscope & Tips | {date}"
-    description: |
-      ⚡ Quick daily guidance for {sign}! ⚡
-      
-      Get your horoscope, wealth tip, and health tip for today.
-      
-      🔔 Subscribe for daily cosmic guidance!
-      
-      #Shorts #Horoscope #{sign} #Astrology #DailyHoroscope
-    tags:
-      - shorts
-      - horoscope
-      - astrology
-      - zodiac
-      
-  instagram:
-    caption: |
-      🌟 {sign} Daily Forecast 🌟
-      
-      ✨ Today's Horoscope
-      💰 Wealth Tip
-      🏥 Health Tip
-      
-      {date}
-      
-      Follow for daily cosmic guidance! 🔮
-      
-      #{sign} #Horoscope #Astrology #DailyHoroscope #Zodiac #Wealth #Health #Spirituality
-      
-  tiktok:
-    caption: "{sign} daily horoscope & tips ✨ #{sign} #Horoscope #Astrology #DailyHoroscope #Wealth #Health"
-    
-  twitter:
-    text: "🌟 {sign} Daily Forecast\n\n✨ Horoscope\n💰 Wealth Tip\n🏥 Health Tip\n\n{date}\n\n#Horoscope #Astrology #{sign}"
-
-# API Endpoints (NOT USED - Removed per user request)
-# No Bitcoin or market data APIs needed
-
-# GitHub Secrets Required (ALL FREE!)
-# Set these in repo Settings > Secrets and variables > Actions
-secrets_required:
-  - HUGGINGFACE_API_KEY      # FREE from huggingface.co/settings/tokens
-  # OR
-  - GROQ_API_KEY             # FREE from console.groq.com (alternative)
-  
-  # YouTube (optional for auto-upload - free but requires setup)
-  - YOUTUBE_CLIENT_ID        # YouTube Data API OAuth Client ID (FREE)
-  - YOUTUBE_CLIENT_SECRET    # YouTube Data API OAuth Client Secret (FREE)
-  - YOUTUBE_REFRESH_TOKEN    # YouTube OAuth Refresh Token (FREE)
-
-# Upload Settings
-upload_settings:
-  youtube:
-    privacy: "public"  # public, unlisted, or private
-    category: "22"     # People & Blogs
-    made_for_kids: false
-    
-  retry_attempts: 3
-  retry_delay: 60  # seconds between retries
+      Keep it motivational, positive, and grounded in Indian wisdom. Output only the script.
