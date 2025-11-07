@@ -66,7 +66,7 @@ def get_day_of_week_background():
 
 def fetch_ai_content(prompt, sign):
     """Fetch content from Groq or HuggingFace"""
-    formatted_prompt = prompt.format(sign=sign)
+    formatted_prompt = prompt.format(sign=sign, date=datetime.now().strftime("%B %d, %Y"))
     
     if GROQ_API_KEY:
         try:
@@ -79,11 +79,11 @@ def fetch_ai_content(prompt, sign):
                 json={
                     "model": "llama-3.3-70b-versatile",
                     "messages": [
-                        {"role": "system", "content": "You are a warm Vedic astrologer. Keep responses concise and natural."},
+                        {"role": "system", "content": "You are a traditional Indian astrologer speaking in a warm, devotional tone. Provide only the final narration script, no explanations."},
                         {"role": "user", "content": formatted_prompt}
                     ],
-                    "temperature": 0.7,
-                    "max_tokens": 150
+                    "temperature": 0.8,
+                    "max_tokens": 300
                 },
                 timeout=15
             )
@@ -99,7 +99,7 @@ def fetch_ai_content(prompt, sign):
                 headers={"Authorization": f"Bearer {HUGGINGFACE_API_KEY}"},
                 json={
                     "inputs": formatted_prompt,
-                    "parameters": {"max_new_tokens": 150, "temperature": 0.7}
+                    "parameters": {"max_new_tokens": 300, "temperature": 0.8}
                 },
                 timeout=15
             )
@@ -113,27 +113,139 @@ def fetch_ai_content(prompt, sign):
     return None
 
 
-def clean_and_summarize(text):
-    """Clean AI response and make it concise"""
+def simplify_to_simple_english(text):
+    """Convert complex text to simple, clear English while keeping insight"""
     if not text:
         return ""
     
+    # Remove markdown and extra formatting
     text = text.replace("**", "").replace("*", "").replace("#", "").strip()
     
-    prefixes = ["Here is", "Here's", "Today's", "For today", "Namaste"]
+    # Replace complex words with simple ones
+    replacements = {
+        "planetary alignment": "stars aligning",
+        "celestial bodies": "planets",
+        "auspicious": "good",
+        "inauspicious": "challenging",
+        "propitious": "favorable",
+        "forthcoming": "coming",
+        "endeavor": "try",
+        "facilitate": "help",
+        "manifest": "happen",
+        "abundant": "lots of",
+        "prosperity": "success",
+        "adversity": "challenges",
+        "fortuitous": "lucky",
+        "serendipity": "good timing",
+        "contemplation": "thinking",
+        "meditation": "stillness",
+        "introspection": "looking within",
+        "intuition": "inner feeling",
+        "synchronicity": "things lining up",
+        "oscillate": "move",
+        "fluctuation": "ups and downs",
+        "momentum": "energy",
+        "trajectory": "path",
+        "leverage": "use",
+        "capitalize": "take advantage",
+        "precipitate": "cause",
+        "endeavors": "efforts",
+        "optimism": "hope",
+        "vigilance": "awareness",
+        "prudence": "caution",
+        "articulate": "express",
+        "initiate": "start",
+        "culminate": "end",
+        "decipher": "understand",
+        "illuminate": "show",
+        "nurture": "support",
+        "cultivate": "build",
+        "mitigate": "reduce",
+        "augment": "increase",
+        "ameliorate": "improve",
+    }
+    
+    for complex_word, simple_word in replacements.items():
+        text = text.replace(complex_word, simple_word)
+        text = text.replace(complex_word.capitalize(), simple_word.capitalize())
+    
+    # Remove common prefixes
+    prefixes = ["Here is", "Here's", "Today's", "For today", "Namaste", "Based on", "According to"]
     for prefix in prefixes:
-        if text.startswith(prefix):
+        if text.lower().startswith(prefix.lower()):
             text = text[len(prefix):].strip()
-            if text.startswith(":") or text.startswith(","):
+            if text and text[0] in ":,- ":
                 text = text[1:].strip()
     
-    sentences = [s.strip() for s in text.replace("!", ".").replace("?", ".").split(".") if s.strip()]
-    if len(sentences) > 4:
-        sentences = sentences[:4]
+    # Clean up punctuation
+    text = text.strip()
+    if not text:
+        return ""
     
-    result = ". ".join(sentences)
+    return text
+
+
+def clean_and_summarize(text):
+    """Clean AI response - keep insight, use simple English, format for video"""
+    if not text:
+        return ""
+    
+    # Step 1: Simplify to basic English
+    text = simplify_to_simple_english(text)
+    
+    # Step 2: Split into sentences
+    sentences = [s.strip() for s in text.replace("!", ".").replace("?", ".").split(".") if s.strip() and len(s.strip()) > 5]
+    
+    # Step 3: Keep 4-6 sentences for good insight (not too short, not too long)
+    if len(sentences) > 6:
+        sentences = sentences[:6]
+    elif len(sentences) < 2:
+        # If very short, at least add some context
+        sentences = sentences
+    
+    # Step 4: Filter out very long sentences (>20 words) - break them up
+    cleaned_sentences = []
+    for sent in sentences:
+        words = sent.split()
+        
+        # If too long, try to break at logical point
+        if len(words) > 20:
+            # Find middle point
+            mid = len(words) // 2
+            # Look for best breaking point (comma, "and", "or")
+            first_half = " ".join(words[:mid])
+            second_half = " ".join(words[mid:])
+            
+            cleaned_sentences.append(first_half)
+            if second_half.strip():
+                cleaned_sentences.append(second_half)
+        else:
+            cleaned_sentences.append(sent)
+    
+    # Step 5: Join sentences
+    result = ". ".join(cleaned_sentences)
     if result and result[-1] not in ".!?":
         result += "."
+    
+    # Step 6: Format for video display - intelligent line breaking
+    # Max 50-60 chars per line for readability on video
+    words = result.split()
+    lines = []
+    current_line = []
+    
+    for word in words:
+        current_line.append(word)
+        line_text = " ".join(current_line)
+        
+        # Break line if it gets too long or at sentence end
+        if len(line_text) > 55 or word.endswith("."):
+            lines.append(" ".join(current_line))
+            current_line = []
+    
+    if current_line:
+        lines.append(" ".join(current_line))
+    
+    result = "\n".join(lines)
     
     return result
 
