@@ -2,89 +2,368 @@ name: Auto-Generate & Upload Videos for All Zodiac Signs
 
 on:
   schedule:
-    - cron: '0 8 * * *'  # Runs daily at 8 AM UTC
+    - cron: '0 20 * * *'  # Runs daily at 6 AM AEDT (Australian Eastern Daylight Time) = 20:00 UTC previous day
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  generate-and-upload:
+  aries:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        zodiac: 
-          - Aries
-          - Taurus
-          - Gemini
-          - Cancer
-          - Leo
-          - Virgo
-          - Libra
-          - Scorpio
-          - Sagittarius
-          - Capricorn
-          - Aquarius
-          - Pisces
     timeout-minutes: 30
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python 3.10
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg imagemagick
-          sudo sed -i '/<policy domain="path" rights="none" pattern="@\*"/d' /etc/ImageMagick-6/policy.xml
-
-      - name: Cache pip packages
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-
-      - name: Install Python dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-      - name: Generate video for ${{ matrix.zodiac }}
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg imagemagick && sudo sed -i '/<policy domain="path" rights="none" pattern="@\*"/d' /etc/ImageMagick-6/policy.xml
+      - run: pip install -r requirements.txt
+      - run: mkdir -p videos/youtube_shorts/
+      - run: python generate_short.py --sign "Aries"
         env:
           HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-          ZODIAC_SIGN: ${{ matrix.zodiac }}
-        run: |
-          mkdir -p videos/youtube_shorts/
-          python generate_short.py --sign "${{ matrix.zodiac }}"
-
-      - name: Upload to YouTube
+      - run: python upload_youtube.py --sign "Aries" --shorts
         env:
           YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
           YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
-        run: |
-          python upload_youtube.py --sign "${{ matrix.zodiac }}"
         if: env.YOUTUBE_CLIENT_ID != ''
-
-      - name: Upload video artifact
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: astrofinance-videos-${{ matrix.zodiac }}
-          path: videos/youtube_shorts/${{ matrix.zodiac }}_*.mp4
+          name: astrofinance-aries
+          path: videos/youtube_shorts/Aries_*.mp4
           retention-days: 7
-          compression-level: 6
           if-no-files-found: warn
 
-      - name: Cleanup
+  taurus:
+    needs: aries
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg imagemagick && sudo sed -i '/<policy domain="path" rights="none" pattern="@\*"/d' /etc/ImageMagick-6/policy.xml
+      - run: pip install -r requirements.txt
+      - run: mkdir -p videos/youtube_shorts/
+      - run: python generate_short.py --sign "Taurus"
+        env:
+          HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      - run: sleep 90 && python upload_youtube.py --sign "Taurus" --shorts
+        env:
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+        if: env.YOUTUBE_CLIENT_ID != ''
+      - uses: actions/upload-artifact@v4
         if: always()
-        run: |
-          rm -rf temp/
-          ls -la videos/youtube_shorts/ || echo "No videos generated"
+        with:
+          name: astrofinance-taurus
+          path: videos/youtube_shorts/Taurus_*.mp4
+          retention-days: 7
+          if-no-files-found: warn
+
+  gemini:
+    needs: taurus
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg imagemagick && sudo sed -i '/<policy domain="path" rights="none" pattern="@\*"/d' /etc/ImageMagick-6/policy.xml
+      - run: pip install -r requirements.txt
+      - run: mkdir -p videos/youtube_shorts/
+      - run: python generate_short.py --sign "Gemini"
+        env:
+          HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      - run: sleep 90 && python upload_youtube.py --sign "Gemini" --shorts
+        env:
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+        if: env.YOUTUBE_CLIENT_ID != ''
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: astrofinance-gemini
+          path: videos/youtube_shorts/Gemini_*.mp4
+          retention-days: 7
+          if-no-files-found: warn
+
+  cancer:
+    needs: gemini
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg imagemagick && sudo sed -i '/<policy domain="path" rights="none" pattern="@\*"/d' /etc/ImageMagick-6/policy.xml
+      - run: pip install -r requirements.txt
+      - run: mkdir -p videos/youtube_shorts/
+      - run: python generate_short.py --sign "Cancer"
+        env:
+          HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      - run: sleep 90 && python upload_youtube.py --sign "Cancer" --shorts
+        env:
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+        if: env.YOUTUBE_CLIENT_ID != ''
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: astrofinance-cancer
+          path: videos/youtube_shorts/Cancer_*.mp4
+          retention-days: 7
+          if-no-files-found: warn
+
+  leo:
+    needs: cancer
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg imagemagick && sudo sed -i '/<policy domain="path" rights="none" pattern="@\*"/d' /etc/ImageMagick-6/policy.xml
+      - run: pip install -r requirements.txt
+      - run: mkdir -p videos/youtube_shorts/
+      - run: python generate_short.py --sign "Leo"
+        env:
+          HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      - run: sleep 90 && python upload_youtube.py --sign "Leo" --shorts
+        env:
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+        if: env.YOUTUBE_CLIENT_ID != ''
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: astrofinance-leo
+          path: videos/youtube_shorts/Leo_*.mp4
+          retention-days: 7
+          if-no-files-found: warn
+
+  virgo:
+    needs: leo
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg imagemagick && sudo sed -i '/<policy domain="path" rights="none" pattern="@\*"/d' /etc/ImageMagick-6/policy.xml
+      - run: pip install -r requirements.txt
+      - run: mkdir -p videos/youtube_shorts/
+      - run: python generate_short.py --sign "Virgo"
+        env:
+          HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      - run: sleep 90 && python upload_youtube.py --sign "Virgo" --shorts
+        env:
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+        if: env.YOUTUBE_CLIENT_ID != ''
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: astrofinance-virgo
+          path: videos/youtube_shorts/Virgo_*.mp4
+          retention-days: 7
+          if-no-files-found: warn
+
+  libra:
+    needs: virgo
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg imagemagick && sudo sed -i '/<policy domain="path" rights="none" pattern="@\*"/d' /etc/ImageMagick-6/policy.xml
+      - run: pip install -r requirements.txt
+      - run: mkdir -p videos/youtube_shorts/
+      - run: python generate_short.py --sign "Libra"
+        env:
+          HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      - run: sleep 90 && python upload_youtube.py --sign "Libra" --shorts
+        env:
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+        if: env.YOUTUBE_CLIENT_ID != ''
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: astrofinance-libra
+          path: videos/youtube_shorts/Libra_*.mp4
+          retention-days: 7
+          if-no-files-found: warn
+
+  scorpio:
+    needs: libra
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg imagemagick && sudo sed -i '/<policy domain="path" rights="none" pattern="@\*"/d' /etc/ImageMagick-6/policy.xml
+      - run: pip install -r requirements.txt
+      - run: mkdir -p videos/youtube_shorts/
+      - run: python generate_short.py --sign "Scorpio"
+        env:
+          HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      - run: sleep 90 && python upload_youtube.py --sign "Scorpio" --shorts
+        env:
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+        if: env.YOUTUBE_CLIENT_ID != ''
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: astrofinance-scorpio
+          path: videos/youtube_shorts/Scorpio_*.mp4
+          retention-days: 7
+          if-no-files-found: warn
+
+  sagittarius:
+    needs: scorpio
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg imagemagick && sudo sed -i '/<policy domain="path" rights="none" pattern="@\*"/d' /etc/ImageMagick-6/policy.xml
+      - run: pip install -r requirements.txt
+      - run: mkdir -p videos/youtube_shorts/
+      - run: python generate_short.py --sign "Sagittarius"
+        env:
+          HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      - run: sleep 90 && python upload_youtube.py --sign "Sagittarius" --shorts
+        env:
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+        if: env.YOUTUBE_CLIENT_ID != ''
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: astrofinance-sagittarius
+          path: videos/youtube_shorts/Sagittarius_*.mp4
+          retention-days: 7
+          if-no-files-found: warn
+
+  capricorn:
+    needs: sagittarius
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg imagemagick && sudo sed -i '/<policy domain="path" rights="none" pattern="@\*"/d' /etc/ImageMagick-6/policy.xml
+      - run: pip install -r requirements.txt
+      - run: mkdir -p videos/youtube_shorts/
+      - run: python generate_short.py --sign "Capricorn"
+        env:
+          HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      - run: sleep 90 && python upload_youtube.py --sign "Capricorn" --shorts
+        env:
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+        if: env.YOUTUBE_CLIENT_ID != ''
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: astrofinance-capricorn
+          path: videos/youtube_shorts/Capricorn_*.mp4
+          retention-days: 7
+          if-no-files-found: warn
+
+  aquarius:
+    needs: capricorn
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg imagemagick && sudo sed -i '/<policy domain="path" rights="none" pattern="@\*"/d' /etc/ImageMagick-6/policy.xml
+      - run: pip install -r requirements.txt
+      - run: mkdir -p videos/youtube_shorts/
+      - run: python generate_short.py --sign "Aquarius"
+        env:
+          HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      - run: sleep 90 && python upload_youtube.py --sign "Aquarius" --shorts
+        env:
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+        if: env.YOUTUBE_CLIENT_ID != ''
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: astrofinance-aquarius
+          path: videos/youtube_shorts/Aquarius_*.mp4
+          retention-days: 7
+          if-no-files-found: warn
+
+  pisces:
+    needs: aquarius
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg imagemagick && sudo sed -i '/<policy domain="path" rights="none" pattern="@\*"/d' /etc/ImageMagick-6/policy.xml
+      - run: pip install -r requirements.txt
+      - run: mkdir -p videos/youtube_shorts/
+      - run: python generate_short.py --sign "Pisces"
+        env:
+          HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      - run: sleep 90 && python upload_youtube.py --sign "Pisces" --shorts
+        env:
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+        if: env.YOUTUBE_CLIENT_ID != ''
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: astrofinance-pisces
+          path: videos/youtube_shorts/Pisces_*.mp4
+          retention-days: 7
+          if-no-files-found: warn
