@@ -132,7 +132,19 @@ def upload_to_youtube(video_path, sign, is_shorts=False):
         return video_url
         
     except Exception as e:
+        error_msg = str(e)
         print(f"  ❌ YouTube upload failed: {e}")
+        
+        # Check if it's a quota/limit error
+        if "uploadLimitExceeded" in error_msg or "quotaExceeded" in error_msg:
+            print(f"  ⚠️ QUOTA EXCEEDED - YouTube daily upload limit reached")
+            print(f"  ⚠️ Video saved locally: {video_path}")
+            print(f"  💡 Try again tomorrow or increase YouTube quota")
+            return None
+        elif "unauthorized" in error_msg.lower() or "invalid_grant" in error_msg.lower():
+            print(f"  ⚠️ AUTH ERROR - Check YouTube credentials")
+            return None
+        
         import traceback
         traceback.print_exc()
         return None
