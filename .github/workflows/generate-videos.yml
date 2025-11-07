@@ -2,8 +2,11 @@ name: Auto-Generate & Upload Videos for All Zodiac Signs
 
 on:
   schedule:
-    - cron: '0 0 * * *'  # Runs daily at midnight UTC
+    - cron: '0 8 * * *'  # Runs daily at 8 AM UTC
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   generate-and-upload:
@@ -23,47 +26,65 @@ jobs:
           - Capricorn
           - Aquarius
           - Pisces
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-      
-      - name: Install dependencies
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg imagemagick
+          sudo sed -i '/<policy domain="path" rights="none" pattern="@\*"/d' /etc/ImageMagick-6/policy.xml
+
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install google-auth-oauthlib google-auth-httplib2 google-api-python-client
-      
-      - name: Generate 12 videos for ${{ matrix.zodiac }}
+
+      - name: Generate video for ${{ matrix.zodiac }}
+        env:
+          HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          ZODIAC_SIGN: ${{ matrix.zodiac }}
         run: |
           mkdir -p videos/youtube_shorts/
-          python scripts/generate_video.py \
-            --sign "${{ matrix.zodiac }}" \
-            --count 12 \
-            --output-dir videos/youtube_shorts/
+          python generate_short.py --sign "${{ matrix.zodiac }}"
+
+      - name: Upload to YouTube
         env:
-          ZODIAC_SIGN: ${{ matrix.zodiac }}
-      
-      - name: Upload videos to YouTube
-        run: |
-          python scripts/upload_to_youtube.py \
-            --video-dir videos/youtube_shorts/ \
-            --zodiac "${{ matrix.zodiac }}"
-        env:
-          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
           YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
           YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
-      
-      - name: Upload artifacts for backup
+        run: |
+          python upload_youtube.py --sign "${{ matrix.zodiac }}"
+        if: env.YOUTUBE_CLIENT_ID != ''
+
+      - name: Upload video artifact
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: astrofinance-videos-${{ matrix.zodiac }}
-          path: videos/youtube_shorts/
+          path: videos/youtube_shorts/${{ matrix.zodiac }}_*.mp4
           retention-days: 7
           compression-level: 6
           if-no-files-found: warn
+
+      - name: Cleanup
+        if: always()
+        run: |
+          rm -rf temp/
+          ls -la videos/youtube_shorts/ || echo "No videos generated"
