@@ -5,6 +5,10 @@ import yaml
 import requests
 from moviepy.editor import VideoFileClip, AudioFileClip, TextClip, CompositeVideoClip
 from PIL import Image
+from google.oauth2.credentials import Credentials
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaFileUpload
+import time
 
 # Patch for Pillow compatibility
 if not hasattr(Image, 'ANTIALIAS'):
@@ -22,11 +26,105 @@ ZODIAC_SIGNS = CONFIG['zodiac_signs']
 # Get API keys from environment
 GROQ_API_KEY = os.getenv('GROQ_API_KEY', '')
 HUGGINGFACE_API_KEY = os.getenv('HUGGINGFACE_API_KEY', '')
+YOUTUBE_CLIENT_ID = os.getenv('YOUTUBE_CLIENT_ID', '')
+YOUTUBE_CLIENT_SECRET = os.getenv('YOUTUBE_CLIENT_SECRET', '')
+YOUTUBE_REFRESH_TOKEN = os.getenv('YOUTUBE_REFRESH_TOKEN', '')
 
 # Ensure output folders exist
 os.makedirs(VIDEO_CONFIG['output_folder'], exist_ok=True)
 os.makedirs(os.path.join(VIDEO_CONFIG['output_folder'], 'youtube_shorts'), exist_ok=True)
 os.makedirs(VIDEO_CONFIG['temp_folder'], exist_ok=True)
+
+
+# ========================================
+# YOUTUBE UPLOAD FUNCTIONS
+# ========================================
+
+def upload_to_youtube(video_path, sign):
+    """Upload video to YouTube Shorts"""
+    if not all([YOUTUBE_CLIENT_ID, YOUTUBE_CLIENT_SECRET, YOUTUBE_REFRESH_TOKEN]):
+        print(f"    ⚠️ YouTube credentials not configured - skipping upload")
+        return None
+    
+    try:
+        print(f"    📤 Uploading to YouTube...")
+        
+        # Create credentials
+        credentials = Credentials(
+            token=None,
+            refresh_token=YOUTUBE_REFRESH_TOKEN,
+            token_uri="https://oauth2.googleapis.com/token",
+            client_id=YOUTUBE_CLIENT_ID,
+            client_secret=YOUTUBE_CLIENT_SECRET
+        )
+        
+        # Build YouTube API client
+        youtube = build('youtube', 'v3', credentials=credentials)
+        
+        # Create video metadata
+        today = datetime.now().strftime("%B %d, %Y")
+        title = f"{sign} Daily Horoscope & Cosmic Guidance | {today} #Shorts"
+        description = f"""🌟 {sign} Daily Horoscope for {today}
+
+✨ Today's Cosmic Guidance:
+- Daily Horoscope
+- Wealth & Financial Tips
+- Health & Wellness Blessings
+
+🔔 Subscribe for daily cosmic guidance!
+💬 Comment your zodiac sign below
+👍 Like if this resonates with you
+
+#{sign} #Horoscope #Astrology #DailyHoroscope #Zodiac #Shorts #VedicAstrology #CosmicGuidance #Spirituality
+
+⚠️ For entertainment purposes only. Consult professionals for serious decisions."""
+        
+        tags = [
+            "horoscope", "daily horoscope", "astrology", sign.lower(),
+            "zodiac", "shorts", "vedic astrology", "cosmic guidance",
+            "spiritual", "horoscope today", f"{sign.lower()} horoscope"
+        ]
+        
+        body = {
+            'snippet': {
+                'title': title,
+                'description': description,
+                'tags': tags,
+                'categoryId': '22'  # People & Blogs
+            },
+            'status': {
+                'privacyStatus': 'public',  # or 'unlisted' for testing
+                'madeForKids': False,
+                'selfDeclaredMadeForKids': False
+            }
+        }
+        
+        # Upload video
+        media = MediaFileUpload(video_path, chunksize=-1, resumable=True)
+        request = youtube.videos().insert(
+            part=','.join(body.keys()),
+            body=body,
+            media_body=media
+        )
+        
+        response = None
+        while response is None:
+            status, response = request.next_chunk()
+            if status:
+                print(f"      Upload progress: {int(status.progress() * 100)}%")
+        
+        video_id = response['id']
+        video_url = f"https://www.youtube.com/watch?v={video_id}"
+        print(f"    ✅ Uploaded! Video ID: {video_id}")
+        print(f"    🔗 URL: {video_url}")
+        
+        return video_url
+        
+    except Exception as e:
+        print(f"    ❌ YouTube upload failed: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
 
 
 # ========================================
@@ -37,10 +135,8 @@ def fetch_ai_content(prompt, sign):
     """Fetch content from Groq or HuggingFace"""
     formatted_prompt = prompt.format(sign=sign)
     
-    # Try Groq first
     if GROQ_API_KEY:
         try:
-            print(f"      🤖 Groq AI...")
             response = requests.post(
                 "https://api.groq.com/openai/v1/chat/completions",
                 headers={
@@ -60,13 +156,11 @@ def fetch_ai_content(prompt, sign):
             )
             if response.status_code == 200:
                 return response.json()['choices'][0]['message']['content'].strip()
-        except Exception as e:
-            print(f"      ⚠️ Groq failed: {e}")
+        except:
+            pass
     
-    # Try HuggingFace
     if HUGGINGFACE_API_KEY:
         try:
-            print(f"      🤖 HuggingFace...")
             response = requests.post(
                 "https://router.huggingface.co/hf-inference/models/deepseek-ai/DeepSeek-V3",
                 headers={"Authorization": f"Bearer {HUGGINGFACE_API_KEY}"},
@@ -80,14 +174,14 @@ def fetch_ai_content(prompt, sign):
                 result = response.json()
                 if isinstance(result, list) and len(result) > 0:
                     return result[0].get('generated_text', '').strip()
-        except Exception as e:
-            print(f"      ⚠️ HuggingFace failed: {e}")
+        except:
+            pass
     
     return None
 
 
 def clean_and_summarize(text):
-    """Clean AI response and make it more concise/natural"""
+    """Clean AI response and make it concise"""
     text = text.replace("**", "").replace("*", "").replace("#", "").strip()
     
     prefixes = ["Here is", "Here's", "Today's", "For today", "Namaste"]
@@ -98,7 +192,6 @@ def clean_and_summarize(text):
                 text = text[1:].strip()
     
     sentences = [s.strip() for s in text.replace("!", ".").replace("?", ".").split(".") if s.strip()]
-    
     if len(sentences) > 4:
         sentences = sentences[:4]
     
@@ -111,7 +204,7 @@ def clean_and_summarize(text):
 
 def get_content_for_sign(sign):
     """Get horoscope, wealth, and health content"""
-    print(f"    📝 Fetching content...")
+    print(f"  📝 Fetching content...")
     
     horo = fetch_ai_content(CONFIG['free_ai']['prompts']['horoscope'], sign)
     if not horo:
@@ -128,7 +221,7 @@ def get_content_for_sign(sign):
         health = "The Moon stirs emotions today. Drink water mindfully and practice deep breathing for balance."
     health = clean_and_summarize(health)
     
-    print(f"    ✅ Content ready")
+    print(f"  ✅ Content ready")
     return {'horoscope': horo, 'wealth': wealth, 'health': health}
 
 
@@ -137,7 +230,7 @@ def get_content_for_sign(sign):
 # ========================================
 
 def create_heading(text, font_size, color, duration, screen_size, fade=True):
-    """Create BOLD, BIGGER heading with underline"""
+    """Create heading with underline"""
     heading = TextClip(
         text,
         fontsize=font_size + 20,
@@ -161,43 +254,29 @@ def create_heading(text, font_size, color, duration, screen_size, fade=True):
 
 
 def create_text_chunks(text, font_size, screen_size, total_duration):
-    """Split text intelligently based on content length with adaptive timing"""
-    # Wrap text to fit screen
+    """Split text into smart chunks"""
     wrapped_lines = []
     for line in text.split('\n'):
         if line.strip():
             wrapped_lines.extend(textwrap.wrap(line, width=35))
     
     total_lines = len(wrapped_lines)
-    print(f"      📄 Total lines: {total_lines}")
     
-    # Determine optimal lines per chunk based on content length
     if total_lines <= 8:
-        # Short content - show all at once
         chunks = ["\n".join(wrapped_lines)]
-        print(f"      ✓ Short content: 1 chunk with {total_lines} lines")
     elif total_lines <= 16:
-        # Medium content - split in half (8 lines each)
         mid = len(wrapped_lines) // 2
-        chunks = [
-            "\n".join(wrapped_lines[:mid]),
-            "\n".join(wrapped_lines[mid:])
-        ]
-        print(f"      ✓ Medium content: 2 chunks ({mid} + {len(wrapped_lines)-mid} lines)")
+        chunks = ["\n".join(wrapped_lines[:mid]), "\n".join(wrapped_lines[mid:])]
     else:
-        # Long content - split into 9-line chunks
         LINES_PER_CHUNK = 9
         chunks = []
         for i in range(0, len(wrapped_lines), LINES_PER_CHUNK):
             chunk_lines = wrapped_lines[i:i + LINES_PER_CHUNK]
             chunks.append("\n".join(chunk_lines))
-        print(f"      ✓ Long content: {len(chunks)} chunks (~9 lines each)")
     
-    # Calculate duration per chunk - give more time to chunks with more lines
     text_clips = []
     
     if len(chunks) == 1:
-        # Single chunk - use full duration
         clip = TextClip(
             chunks[0],
             fontsize=font_size,
@@ -207,18 +286,13 @@ def create_text_chunks(text, font_size, screen_size, total_duration):
         ).set_duration(total_duration).set_start(0).fadein(0.8).fadeout(0.8)
         text_clips.append(clip)
     else:
-        # Multiple chunks - distribute time proportionally
         chunk_line_counts = [len(chunk.split('\n')) for chunk in chunks]
         total_lines_all = sum(chunk_line_counts)
         
         current_time = 0
         for i, chunk in enumerate(chunks):
-            # Allocate time based on line count proportion
             lines_in_chunk = chunk_line_counts[i]
-            chunk_duration = (lines_in_chunk / total_lines_all) * total_duration
-            
-            # Minimum 3 seconds per chunk for readability
-            chunk_duration = max(3.0, chunk_duration)
+            chunk_duration = max(3.0, (lines_in_chunk / total_lines_all) * total_duration)
             
             clip = TextClip(
                 chunk,
@@ -229,47 +303,32 @@ def create_text_chunks(text, font_size, screen_size, total_duration):
             ).set_duration(chunk_duration).set_start(current_time).fadein(0.8).fadeout(0.8)
             
             text_clips.append(clip)
-            print(f"      Chunk {i+1}: {lines_in_chunk} lines = {chunk_duration:.1f}s")
             current_time += chunk_duration
     
     return text_clips
 
 
 def create_short(sign, content):
-    """Create short with ADAPTIVE timing based on content length"""
-    print(f"\n🔮 [{sign}] — starting...")
+    """Create video short"""
+    print(f"  🎬 Creating video...")
     screen_size = SHORTS_CONFIG['resolution']
     
-    sign_color = "#F5F5F5"
-    
-    # Calculate content lengths
+    # Calculate adaptive timing
     horo_length = len(content['horoscope'])
     wealth_length = len(content['wealth'])
     health_length = len(content['health'])
     total_content_length = horo_length + wealth_length + health_length
     
-    print(f"  📊 Content lengths: Horo={horo_length}, Wealth={wealth_length}, Health={health_length}")
-    
-    # Available time for content (59 - 5 for subscribe)
     AVAILABLE_TIME = 54
     SUBSCRIBE_DURATION = 5
     TARGET_DURATION = 59
     
-    # Distribute time proportionally based on content length
     horo_time = max(15, int((horo_length / total_content_length) * AVAILABLE_TIME))
     wealth_time = max(12, int((wealth_length / total_content_length) * AVAILABLE_TIME))
-    health_time = AVAILABLE_TIME - horo_time - wealth_time  # Remainder
+    health_time = max(12, AVAILABLE_TIME - horo_time - wealth_time)
     
-    # Ensure minimum times
-    health_time = max(12, health_time)
-    
-    print(f"  ⏱️ Timing: Horo={horo_time}s, Wealth={wealth_time}s, Health={health_time}s, Subscribe={SUBSCRIBE_DURATION}s")
-    print(f"  ⏱️ Total: {horo_time + wealth_time + health_time + SUBSCRIBE_DURATION}s")
-    
-    # Load background
+    # Load and crop background
     bg_original = VideoFileClip(VIDEO_CONFIG['background_video'])
-    
-    # Crop to vertical
     target_w, target_h = screen_size
     bg_w, bg_h = bg_original.size
     
@@ -288,7 +347,6 @@ def create_short(sign, content):
             y1 = int(y_center - target_h / 2)
             bg_original = bg_original.crop(y1=y1, height=target_h)
     
-    # Loop background
     MAIN_DURATION = horo_time + wealth_time + health_time
     
     if bg_original.duration < TARGET_DURATION:
@@ -297,23 +355,20 @@ def create_short(sign, content):
     else:
         bg_clip = bg_original.subclip(0, TARGET_DURATION)
     
-    print(f"  ✅ Background ready")
-    
     all_clips = []
     current_time = 0
     
-    # Position settings
     HEADING_Y = 100
     TEXT_Y = 910
     SIGN_Y = HEADING_Y + 60
     DATE_Y = SIGN_Y + 130
     HORO_HEADING_Y = HEADING_Y - 60
     
-    # 1. TITLE (SIGN + DATE)
+    # Title
     title_heading, title_underline = create_heading(
         f"✨ {sign} ✨",
         TEXT_STYLE['title_font_size'],
-        sign_color,
+        "#F5F5F5",
         MAIN_DURATION,
         screen_size,
         fade=False
@@ -330,11 +385,11 @@ def create_short(sign, content):
     ).set_duration(MAIN_DURATION).set_position(('center', DATE_Y))
     all_clips.append(date_clip)
     
-    # 2. HOROSCOPE (adaptive timing)
+    # Horoscope
     horo_heading, horo_underline = create_heading(
         "🌙 Daily Horoscope",
         TEXT_STYLE['content_font_size'],
-        sign_color,
+        "#F5F5F5",
         horo_time,
         screen_size
     )
@@ -342,34 +397,24 @@ def create_short(sign, content):
     horo_underline = horo_underline.set_position(('center', HORO_HEADING_Y + 100)).set_start(current_time)
     all_clips.extend([horo_heading, horo_underline])
     
-    print(f"    Creating horoscope chunks...")
     horo_chunks = create_text_chunks(content['horoscope'], TEXT_STYLE['content_font_size'] - 5, screen_size, horo_time)
     for chunk in horo_chunks:
-        chunk = chunk.set_position(('center', TEXT_Y))
-        chunk_with_offset = chunk.set_start(current_time + chunk.start)
-        all_clips.append(chunk_with_offset)
+        all_clips.append(chunk.set_position(('center', TEXT_Y)).set_start(current_time + chunk.start))
     current_time += horo_time
     
-    # 3. WEALTH (adaptive timing)
-    print(f"    Creating wealth chunks...")
+    # Wealth
     wealth_chunks = create_text_chunks(content['wealth'], TEXT_STYLE['tip_font_size'] - 5, screen_size, wealth_time)
     for chunk in wealth_chunks:
-        chunk = chunk.set_position(('center', TEXT_Y))
-        chunk_with_offset = chunk.set_start(current_time + chunk.start)
-        all_clips.append(chunk_with_offset)
+        all_clips.append(chunk.set_position(('center', TEXT_Y)).set_start(current_time + chunk.start))
     current_time += wealth_time
     
-    # 4. HEALTH (adaptive timing)
-    print(f"    Creating health chunks...")
+    # Health
     health_chunks = create_text_chunks(content['health'], TEXT_STYLE['tip_font_size'] - 5, screen_size, health_time)
     for chunk in health_chunks:
-        chunk = chunk.set_position(('center', TEXT_Y))
-        chunk_with_offset = chunk.set_start(current_time + chunk.start)
-        all_clips.append(chunk_with_offset)
+        all_clips.append(chunk.set_position(('center', TEXT_Y)).set_start(current_time + chunk.start))
     current_time += health_time
     
-    # 5. SUBSCRIBE SCREEN (5s)
-    print(f"  📺 Adding subscribe (5s)...")
+    # Subscribe
     sub_text = TextClip(
         "🔔 SUBSCRIBE\n\nLIKE • SHARE • COMMENT",
         fontsize=60,
@@ -383,17 +428,14 @@ def create_short(sign, content):
     # Composite
     final_video = CompositeVideoClip([bg_clip] + all_clips).set_duration(TARGET_DURATION)
     
-    # Add OM Mantra
+    # Add music
     if os.path.exists(VIDEO_CONFIG['background_music']):
-        print(f"  🎵 Adding OM Mantra...")
         music = AudioFileClip(VIDEO_CONFIG['background_music']).volumex(VIDEO_CONFIG['music_volume'])
-        
         if music.duration < TARGET_DURATION:
             loops = int(TARGET_DURATION / music.duration) + 1
             music = music.loop(n=loops).subclip(0, TARGET_DURATION)
         else:
             music = music.subclip(0, TARGET_DURATION)
-        
         final_video = final_video.set_audio(music)
     
     output_file = os.path.join(
@@ -412,7 +454,7 @@ def create_short(sign, content):
         logger=None
     )
     
-    print(f"  ✅ Done! ({final_video.duration:.1f}s)")
+    print(f"  ✅ Video created")
     
     # Cleanup
     bg_original.close()
@@ -422,45 +464,104 @@ def create_short(sign, content):
     return output_file
 
 
+# ========================================
+# MAIN - ONE AT A TIME
+# ========================================
+
 def main():
     print("="*60)
-    print("🌟 ASTROFINANCE DAILY - TEST MODE")
+    print("🌟 ASTROFINANCE DAILY - GENERATE → UPLOAD → DELETE")
     print("="*60)
     print(f"📅 {datetime.now().strftime('%B %d, %Y')}")
     print("="*60)
     
+    # Check credentials
     if GROQ_API_KEY:
-        print("🤖 API: Groq ✅")
+        print("🤖 AI: Groq ✅")
     elif HUGGINGFACE_API_KEY:
-        print("🤖 API: HuggingFace ✅")
+        print("🤖 AI: HuggingFace ✅")
     else:
-        print("⚠️ No API key - using fallback")
+        print("⚠️ No AI key - using fallback")
     
-    print("\n⚠️  TEST MODE: Generating only 1 short (Aries)\n")
+    if all([YOUTUBE_CLIENT_ID, YOUTUBE_CLIENT_SECRET, YOUTUBE_REFRESH_TOKEN]):
+        print("📺 YouTube: Configured ✅")
+        auto_upload = True
+    else:
+        print("⚠️ YouTube: Not configured - videos will be saved locally")
+        auto_upload = False
     
-    TEST_SIGN = "Aries"
+    print("\n🔄 Processing one sign at a time...")
+    print("="*60)
     
-    try:
-        content = get_content_for_sign(TEST_SIGN)
-        video = create_short(TEST_SIGN, content)
+    results = []
+    
+    for i, sign in enumerate(ZODIAC_SIGNS, 1):
+        print(f"\n[{i}/12] 🔮 {sign}")
+        print("-" * 40)
         
-        print("\n"+"="*60)
-        print(f"✅ TEST SUCCESSFUL!")
-        print("="*60)
-        print(f"📁 Video: {video}")
-        print(f"\n📝 Content used:")
-        print(f"   Horo: {content['horoscope']}")
-        print(f"   Wealth: {content['wealth']}")
-        print(f"   Health: {content['health']}")
-        print("\n💡 If good, change TEST_SIGN to loop through all signs:")
-        print("   for sign in ZODIAC_SIGNS:")
-        print("       content = get_content_for_sign(sign)")
-        print("       create_short(sign, content)")
-        print("\n💰 COST: $0.00")
-    except Exception as e:
-        print(f"\n❌ TEST FAILED: {e}")
-        import traceback
-        traceback.print_exc()
+        try:
+            # Step 1: Generate content
+            content = get_content_for_sign(sign)
+            
+            # Step 2: Create video
+            video_path = create_short(sign, content)
+            
+            # Step 3: Upload to YouTube (if configured)
+            youtube_url = None
+            if auto_upload:
+                youtube_url = upload_to_youtube(video_path, sign)
+                
+                # Wait 30 seconds between uploads to avoid rate limits
+                if youtube_url and i < len(ZODIAC_SIGNS):
+                    print(f"    ⏳ Waiting 30s before next upload...")
+                    time.sleep(30)
+            
+            # Step 4: Delete video file to save space
+            try:
+                os.remove(video_path)
+                print(f"  🗑️ Local file deleted")
+            except:
+                print(f"  ⚠️ Could not delete local file")
+            
+            # Track results
+            results.append({
+                'sign': sign,
+                'success': True,
+                'youtube_url': youtube_url
+            })
+            
+            print(f"  ✅ {sign} complete!")
+            
+        except Exception as e:
+            print(f"  ❌ {sign} failed: {e}")
+            results.append({
+                'sign': sign,
+                'success': False,
+                'error': str(e)
+            })
+    
+    # Summary
+    print("\n" + "="*60)
+    print("📊 FINAL SUMMARY")
+    print("="*60)
+    
+    successful = [r for r in results if r['success']]
+    failed = [r for r in results if not r['success']]
+    
+    print(f"✅ Successful: {len(successful)}/12")
+    for r in successful:
+        if r.get('youtube_url'):
+            print(f"   • {r['sign']}: {r['youtube_url']}")
+        else:
+            print(f"   • {r['sign']}: Video created locally")
+    
+    if failed:
+        print(f"\n❌ Failed: {len(failed)}/12")
+        for r in failed:
+            print(f"   • {r['sign']}: {r.get('error', 'Unknown error')}")
+    
+    print("\n💰 COST: $0.00")
+    print("="*60)
 
 
 if __name__ == "__main__":
