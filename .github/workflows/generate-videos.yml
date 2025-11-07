@@ -29,6 +29,7 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y ffmpeg imagemagick && sudo sed -i '/<policy domain="path" rights="none" pattern="@\*"/d' /etc/ImageMagick-6/policy.xml
       - run: pip install -r requirements.txt
       - run: mkdir -p videos/youtube_shorts/ videos/instagram_reels/
+      - run: echo "🌍 Australian Date/Time:" && python -c "from datetime import datetime; import pytz; tz = pytz.timezone('Australia/Sydney'); print(datetime.now(tz).strftime('%A, %B %d, %Y at %I:%M %p %Z'))"
       - run: python generate_short.py --sign "Aries"
         env:
           HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}
