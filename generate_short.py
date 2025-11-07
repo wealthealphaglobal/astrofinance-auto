@@ -30,7 +30,38 @@ HUGGINGFACE_API_KEY = os.getenv('HUGGINGFACE_API_KEY', '')
 # Ensure output folders exist
 os.makedirs(VIDEO_CONFIG['output_folder'], exist_ok=True)
 os.makedirs(os.path.join(VIDEO_CONFIG['output_folder'], 'youtube_shorts'), exist_ok=True)
+os.makedirs(os.path.join(VIDEO_CONFIG['output_folder'], 'instagram_reels'), exist_ok=True)
 os.makedirs(VIDEO_CONFIG['temp_folder'], exist_ok=True)
+
+
+def get_day_of_week_background():
+    """Get background video for current day of week"""
+    days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+    today_index = datetime.now().weekday()
+    day_name = days[today_index]
+    
+    bg_filename = f"{day_name}_bg.mp4"
+    
+    print(f"  🔍 Looking for {day_name}'s background: {bg_filename}")
+    
+    if os.path.exists(bg_filename):
+        size_mb = os.path.getsize(bg_filename) / (1024 * 1024)
+        print(f"  ✅ Found {day_name} background: {bg_filename} ({size_mb:.2f} MB)")
+        return bg_filename
+    
+    print(f"  ⚠️ {day_name}_bg.mp4 not found, trying fallback...")
+    
+    # Fallback to default background
+    default_bg = VIDEO_CONFIG['background_video']
+    if os.path.exists(default_bg):
+        size_mb = os.path.getsize(default_bg) / (1024 * 1024)
+        print(f"  ✅ Using default background: {default_bg} ({size_mb:.2f} MB)")
+        return default_bg
+    
+    print(f"  ❌ No background found! Checked:")
+    print(f"     • {bg_filename}")
+    print(f"     • {default_bg}")
+    return None
 
 
 def fetch_ai_content(prompt, sign):
@@ -228,8 +259,14 @@ def create_short(sign, content):
     wealth_time = max(12, int((wealth_length / total_content_length) * AVAILABLE_TIME))
     health_time = max(12, AVAILABLE_TIME - horo_time - wealth_time)
     
+    # Get day-of-week background
+    bg_video_path = get_day_of_week_background()
+    if not bg_video_path:
+        print(f"  ❌ No background video available")
+        return None
+    
     # Load and crop background
-    bg_original = VideoFileClip(VIDEO_CONFIG['background_video'])
+    bg_original = VideoFileClip(bg_video_path)
     target_w, target_h = screen_size
     bg_w, bg_h = bg_original.size
     
@@ -371,6 +408,20 @@ def create_short(sign, content):
     )
     
     print(f"  ✅ Video created: {output_file}")
+    
+    # Also save to Instagram Reels folder (same video)
+    insta_output = os.path.join(
+        VIDEO_CONFIG['output_folder'],
+        'instagram_reels',
+        f"{sign}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.mp4"
+    )
+    
+    try:
+        import shutil
+        shutil.copy(output_file, insta_output)
+        print(f"  ✅ Copied to Instagram Reels: {insta_output}")
+    except Exception as e:
+        print(f"  ⚠️ Could not copy to Instagram Reels: {e}")
     
     # Cleanup
     bg_original.close()
