@@ -1,0 +1,69 @@
+name: Auto-Generate & Upload Videos for All Zodiac Signs
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # Runs daily at midnight UTC
+  workflow_dispatch:
+
+jobs:
+  generate-and-upload:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        zodiac: 
+          - Aries
+          - Taurus
+          - Gemini
+          - Cancer
+          - Leo
+          - Virgo
+          - Libra
+          - Scorpio
+          - Sagittarius
+          - Capricorn
+          - Aquarius
+          - Pisces
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install google-auth-oauthlib google-auth-httplib2 google-api-python-client
+      
+      - name: Generate 12 videos for ${{ matrix.zodiac }}
+        run: |
+          mkdir -p videos/youtube_shorts/
+          python scripts/generate_video.py \
+            --sign "${{ matrix.zodiac }}" \
+            --count 12 \
+            --output-dir videos/youtube_shorts/
+        env:
+          ZODIAC_SIGN: ${{ matrix.zodiac }}
+      
+      - name: Upload videos to YouTube
+        run: |
+          python scripts/upload_to_youtube.py \
+            --video-dir videos/youtube_shorts/ \
+            --zodiac "${{ matrix.zodiac }}"
+        env:
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+      
+      - name: Upload artifacts for backup
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: astrofinance-videos-${{ matrix.zodiac }}
+          path: videos/youtube_shorts/
+          retention-days: 7
+          compression-level: 6
+          if-no-files-found: warn
