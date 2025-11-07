@@ -4,6 +4,15 @@ on:
   schedule:
     - cron: '0 20 * * *'  # Runs daily at 6 AM AEDT (Australian Eastern Daylight Time) = 20:00 UTC previous day
   workflow_dispatch:
+    inputs:
+      auto_upload:
+        description: 'Auto upload to YouTube?'
+        required: false
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
 
 permissions:
   contents: read
@@ -30,11 +39,21 @@ jobs:
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
           YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
         if: env.YOUTUBE_CLIENT_ID != ''
-      - uses: actions/upload-artifact@v4
+      - name: Upload YouTube Shorts artifact (backup)
+        uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: astrofinance-aries
+          name: astrofinance-backup-aries
           path: videos/youtube_shorts/Aries_*.mp4
+          retention-days: 7
+          if-no-files-found: warn
+      
+      - name: Upload Instagram Reels artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: astrofinance-insta-aries
+          path: videos/instagram_reels/Aries_*.mp4
           retention-days: 7
           if-no-files-found: warn
 
@@ -59,7 +78,7 @@ jobs:
           YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
           YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
-        if: env.YOUTUBE_CLIENT_ID != ''
+        if: env.YOUTUBE_CLIENT_ID != '' && github.event.inputs.auto_upload != 'false'
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -89,7 +108,7 @@ jobs:
           YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
           YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
-        if: env.YOUTUBE_CLIENT_ID != ''
+        if: env.YOUTUBE_CLIENT_ID != '' && github.event.inputs.auto_upload != 'false'
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -119,7 +138,7 @@ jobs:
           YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
           YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
-        if: env.YOUTUBE_CLIENT_ID != ''
+        if: env.YOUTUBE_CLIENT_ID != '' && github.event.inputs.auto_upload != 'false'
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -149,7 +168,7 @@ jobs:
           YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
           YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
-        if: env.YOUTUBE_CLIENT_ID != ''
+        if: env.YOUTUBE_CLIENT_ID != '' && github.event.inputs.auto_upload != 'false'
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -179,7 +198,7 @@ jobs:
           YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
           YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
-        if: env.YOUTUBE_CLIENT_ID != ''
+        if: env.YOUTUBE_CLIENT_ID != '' && github.event.inputs.auto_upload != 'false'
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -209,7 +228,7 @@ jobs:
           YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
           YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
-        if: env.YOUTUBE_CLIENT_ID != ''
+        if: env.YOUTUBE_CLIENT_ID != '' && github.event.inputs.auto_upload != 'false'
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -239,7 +258,7 @@ jobs:
           YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
           YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
-        if: env.YOUTUBE_CLIENT_ID != ''
+        if: env.YOUTUBE_CLIENT_ID != '' && github.event.inputs.auto_upload != 'false'
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -269,7 +288,7 @@ jobs:
           YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
           YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
-        if: env.YOUTUBE_CLIENT_ID != ''
+        if: env.YOUTUBE_CLIENT_ID != '' && github.event.inputs.auto_upload != 'false'
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -299,7 +318,7 @@ jobs:
           YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
           YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
-        if: env.YOUTUBE_CLIENT_ID != ''
+        if: env.YOUTUBE_CLIENT_ID != '' && github.event.inputs.auto_upload != 'false'
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -329,7 +348,7 @@ jobs:
           YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
           YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
-        if: env.YOUTUBE_CLIENT_ID != ''
+        if: env.YOUTUBE_CLIENT_ID != '' && github.event.inputs.auto_upload != 'false'
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -359,7 +378,7 @@ jobs:
           YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
           YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
-        if: env.YOUTUBE_CLIENT_ID != ''
+        if: env.YOUTUBE_CLIENT_ID != '' && github.event.inputs.auto_upload != 'false'
       - uses: actions/upload-artifact@v4
         if: always()
         with:
