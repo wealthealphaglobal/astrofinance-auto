@@ -333,28 +333,14 @@ def create_short(sign, content):
     
     screen_size = SHORTS_CONFIG['resolution']
     
-    # Timing
-    HOROSCOPE_TIME = 30
-    WEALTH_TIME = 12
-    HEALTH_TIME = 12
+    # FIXED TIMING (as requested)
+    HOROSCOPE_TIME = 30  # Main horoscope: 30 seconds
+    WEALTH_TIME = 12     # Wealth tips: 12 seconds
+    HEALTH_TIME = 12     # Health tips: 12 seconds
     SUBSCRIBE_DURATION = 5
     TARGET_DURATION = 59
     
-    horo_length = len(content['horoscope'])
-    wealth_length = len(content['wealth'])
-    health_length = len(content['health'])
-    total_content_length = horo_length + wealth_length + health_length
-    
-    AVAILABLE_TIME = 45
-    
-    if total_content_length > 0:
-        horo_time = max(30, int((horo_length / total_content_length) * AVAILABLE_TIME))
-        wealth_time = max(12, int((wealth_length / total_content_length) * AVAILABLE_TIME))
-        health_time = max(12, AVAILABLE_TIME - horo_time - wealth_time)
-    else:
-        horo_time = HOROSCOPE_TIME
-        wealth_time = WEALTH_TIME
-        health_time = HEALTH_TIME
+    MAIN_DURATION = HOROSCOPE_TIME + WEALTH_TIME + HEALTH_TIME
     
     # Load background
     bg_video_path = get_day_of_week_background()
@@ -380,8 +366,6 @@ def create_short(sign, content):
             y_center = bg_original.h / 2
             y1 = int(y_center - target_h / 2)
             bg_original = bg_original.crop(y1=y1, height=target_h)
-    
-    MAIN_DURATION = horo_time + wealth_time + health_time
     
     if bg_original.duration < TARGET_DURATION:
         loops = int(TARGET_DURATION / bg_original.duration) + 1
@@ -417,50 +401,50 @@ def create_short(sign, content):
     ).set_duration(MAIN_DURATION).set_position(('center', DATE_Y))
     all_clips.append(date_clip)
     
-    # Horoscope
+    # Horoscope (30 seconds)
     horo_heading, horo_underline = create_heading(
         "🌙 Daily Horoscope",
         TEXT_STYLE['content_font_size'] + 1,
-        horo_time
+        HOROSCOPE_TIME
     )
     horo_heading = horo_heading.set_position(('center', HORO_HEADING_Y)).set_start(current_time)
     horo_underline = horo_underline.set_position(('center', HORO_HEADING_Y + 100)).set_start(current_time)
     all_clips.extend([horo_heading, horo_underline])
     
-    horo_chunks = create_text_chunks(content['horoscope'], TEXT_STYLE['content_font_size'] - 4, horo_time)
+    horo_chunks = create_text_chunks(content['horoscope'], TEXT_STYLE['content_font_size'] - 4, HOROSCOPE_TIME)
     for chunk in horo_chunks:
         all_clips.append(chunk.set_position(('center', TEXT_Y)).set_start(current_time + chunk.start))
-    current_time += horo_time
+    current_time += HOROSCOPE_TIME
     
-    # Wealth
+    # Wealth (12 seconds)
     wealth_heading, wealth_underline = create_heading(
         "💰 Wealth Tips",
         TEXT_STYLE['content_font_size'] + 1,
-        wealth_time
+        WEALTH_TIME
     )
     wealth_heading = wealth_heading.set_position(('center', HORO_HEADING_Y)).set_start(current_time)
     wealth_underline = wealth_underline.set_position(('center', HORO_HEADING_Y + 100)).set_start(current_time)
     all_clips.extend([wealth_heading, wealth_underline])
     
-    wealth_chunks = create_text_chunks(content['wealth'], TEXT_STYLE['tip_font_size'] - 4, wealth_time)
+    wealth_chunks = create_text_chunks(content['wealth'], TEXT_STYLE['tip_font_size'] - 4, WEALTH_TIME)
     for chunk in wealth_chunks:
         all_clips.append(chunk.set_position(('center', TEXT_Y)).set_start(current_time + chunk.start))
-    current_time += wealth_time
+    current_time += WEALTH_TIME
     
-    # Health
+    # Health (12 seconds)
     health_heading, health_underline = create_heading(
         "🏥 Health Tips",
         TEXT_STYLE['content_font_size'] + 1,
-        health_time
+        HEALTH_TIME
     )
     health_heading = health_heading.set_position(('center', HORO_HEADING_Y)).set_start(current_time)
     health_underline = health_underline.set_position(('center', HORO_HEADING_Y + 100)).set_start(current_time)
     all_clips.extend([health_heading, health_underline])
     
-    health_chunks = create_text_chunks(content['health'], TEXT_STYLE['tip_font_size'] - 4, health_time)
+    health_chunks = create_text_chunks(content['health'], TEXT_STYLE['tip_font_size'] - 4, HEALTH_TIME)
     for chunk in health_chunks:
         all_clips.append(chunk.set_position(('center', TEXT_Y)).set_start(current_time + chunk.start))
-    current_time += health_time
+    current_time += HEALTH_TIME
     
     # Subscribe
     sub_text = TextClip(
@@ -542,6 +526,7 @@ def main():
     print("="*60)
     aus_now = get_australian_datetime()
     print(f"📅 {aus_now.strftime('%B %d, %Y')}")
+    print(f"⏱️ Timing: Horoscope 30s | Wealth 12s | Health 12s | Subscribe 5s")
     print("-"*60)
     
     try:
