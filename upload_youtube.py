@@ -6,6 +6,8 @@ import sys
 import argparse
 import glob
 from datetime import datetime
+import requests
+from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
@@ -53,7 +55,7 @@ def upload_to_youtube(video_path, sign, is_shorts=False):
         )
         
         # Refresh the token to get a valid access token
-        credentials.refresh(requests.Request())
+        credentials.refresh(Request())
         
         # Build YouTube API client
         youtube = build('youtube', 'v3', credentials=credentials)
