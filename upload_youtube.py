@@ -15,6 +15,11 @@ YOUTUBE_CLIENT_ID = os.getenv('YOUTUBE_CLIENT_ID', '')
 YOUTUBE_CLIENT_SECRET = os.getenv('YOUTUBE_CLIENT_SECRET', '')
 YOUTUBE_REFRESH_TOKEN = os.getenv('YOUTUBE_REFRESH_TOKEN', '')
 
+# Debug: Print if credentials are loaded
+print(f"🔍 DEBUG: CLIENT_ID loaded: {bool(YOUTUBE_CLIENT_ID)}")
+print(f"🔍 DEBUG: CLIENT_SECRET loaded: {bool(YOUTUBE_CLIENT_SECRET)}")
+print(f"🔍 DEBUG: REFRESH_TOKEN loaded: {bool(YOUTUBE_REFRESH_TOKEN)}")
+
 
 def get_latest_video(sign):
     """Find the most recently generated video for a sign"""
@@ -28,7 +33,10 @@ def get_latest_video(sign):
 def upload_to_youtube(video_path, sign, is_shorts=False):
     """Upload video to YouTube (Shorts or regular)"""
     if not all([YOUTUBE_CLIENT_ID, YOUTUBE_CLIENT_SECRET, YOUTUBE_REFRESH_TOKEN]):
-        print(f"  ⚠️ YouTube credentials not configured - skipping upload")
+        print(f"  ⚠️ YouTube credentials not configured!")
+        print(f"     CLIENT_ID: {YOUTUBE_CLIENT_ID[:20] if YOUTUBE_CLIENT_ID else 'MISSING'}...")
+        print(f"     CLIENT_SECRET: {YOUTUBE_CLIENT_SECRET[:10] if YOUTUBE_CLIENT_SECRET else 'MISSING'}...")
+        print(f"     REFRESH_TOKEN: {YOUTUBE_REFRESH_TOKEN[:20] if YOUTUBE_REFRESH_TOKEN else 'MISSING'}...")
         return None
     
     try:
@@ -43,6 +51,9 @@ def upload_to_youtube(video_path, sign, is_shorts=False):
             client_id=YOUTUBE_CLIENT_ID,
             client_secret=YOUTUBE_CLIENT_SECRET
         )
+        
+        # Refresh the token to get a valid access token
+        credentials.refresh(requests.Request())
         
         # Build YouTube API client
         youtube = build('youtube', 'v3', credentials=credentials)
@@ -106,11 +117,10 @@ def upload_to_youtube(video_path, sign, is_shorts=False):
             }
         }
         
-        # Add YouTube Shorts flag if applicable
-        if is_shorts:
-            body['status']['selfDeclaredMadeForKids'] = False
-        
         # Upload video
+        print(f"  📹 Uploading file: {video_path}")
+        print(f"  📊 File size: {os.path.getsize(video_path) / (1024*1024):.2f} MB")
+        
         media = MediaFileUpload(video_path, chunksize=-1, resumable=True)
         request = youtube.videos().insert(
             part=','.join(body.keys()),
@@ -142,7 +152,8 @@ def upload_to_youtube(video_path, sign, is_shorts=False):
             print(f"  💡 Try again tomorrow or increase YouTube quota")
             return None
         elif "unauthorized" in error_msg.lower() or "invalid_grant" in error_msg.lower():
-            print(f"  ⚠️ AUTH ERROR - Check YouTube credentials")
+            print(f"  ⚠️ AUTH ERROR - Refresh token may be expired")
+            print(f"  💡 Get a new refresh token and update GitHub secrets")
             return None
         
         import traceback
