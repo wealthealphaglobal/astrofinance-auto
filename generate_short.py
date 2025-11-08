@@ -34,6 +34,21 @@ os.makedirs(os.path.join(VIDEO_CONFIG['output_folder'], 'instagram_reels'), exis
 os.makedirs(VIDEO_CONFIG['temp_folder'], exist_ok=True)
 
 
+import pytz
+from datetime import datetime
+
+# Australian timezone (AEDT - Australian Eastern Daylight Time)
+AUS_TZ = pytz.timezone('Australia/Sydney')
+
+def get_australian_datetime():
+    """Get current Australian date and time"""
+    return datetime.now(AUS_TZ)
+
+def get_australian_date_string():
+    """Get Australian date as formatted string"""
+    aus_date = get_australian_datetime()
+    return aus_date.strftime("%B %d, %Y")
+
 def get_day_of_week_background():
     """Get background video for current day of week"""
     days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
