@@ -88,11 +88,15 @@ def get_day_of_week_background():
 # API FETCHING
 # ========================================
 
-def fetch_ai_content(prompt, sign):
+def fetch_ai_content(prompt, sign, content_type='general'):
     """Fetch content from Groq or HuggingFace"""
     aus_date_str = get_australian_date_string()
     
     formatted_prompt = prompt.format(sign=sign, date=aus_date_str)
+    
+    # Add line limit instructions for wealth and health
+    if content_type in ['wealth', 'health']:
+        formatted_prompt += "\n\nIMPORTANT: Keep your response to maximum 9 lines. Summarize concisely."
     
     print(f"    📅 Australian date: {aus_date_str}")
     
@@ -224,17 +228,17 @@ def get_content_for_sign(sign):
     """Get horoscope, wealth, and health content"""
     print(f"  📝 Fetching content for {sign}...")
     
-    horo = fetch_ai_content(CONFIG['free_ai']['prompts']['horoscope'], sign)
+    horo = fetch_ai_content(CONFIG['free_ai']['prompts']['horoscope'], sign, content_type='horoscope')
     if not horo:
         horo = f"Namaste {sign}! The stars shine bright for you today. Planetary energy brings opportunities in relationships and career. Trust your intuition."
     horo = clean_and_summarize(horo)
     
-    wealth = fetch_ai_content(CONFIG['free_ai']['prompts']['wealth'], sign)
+    wealth = fetch_ai_content(CONFIG['free_ai']['prompts']['wealth'], sign, content_type='wealth')
     if not wealth:
         wealth = "Do: Plan finances with Mercury's clarity. Don't: Rush major investments today."
     wealth = clean_and_summarize(wealth)
     
-    health = fetch_ai_content(CONFIG['free_ai']['prompts']['health'], sign)
+    health = fetch_ai_content(CONFIG['free_ai']['prompts']['health'], sign, content_type='health')
     if not health:
         health = "The Moon stirs emotions today. Drink water mindfully and practice deep breathing for balance."
     health = clean_and_summarize(health)
