@@ -5,6 +5,7 @@ import os
 import sys
 import argparse
 import textwrap
+import pytz
 from datetime import datetime
 import yaml
 import requests
@@ -33,11 +34,31 @@ os.makedirs(os.path.join(VIDEO_CONFIG['output_folder'], 'youtube_shorts'), exist
 os.makedirs(os.path.join(VIDEO_CONFIG['output_folder'], 'instagram_reels'), exist_ok=True)
 os.makedirs(VIDEO_CONFIG['temp_folder'], exist_ok=True)
 
+# Australian timezone
+AUS_TZ = pytz.timezone('Australia/Sydney')
+
+# ========================================
+# TIMEZONE FUNCTIONS
+# ========================================
+
+def get_australian_datetime():
+    """Get current Australian date and time"""
+    return datetime.now(AUS_TZ)
+
+def get_australian_date_string():
+    """Get Australian date as formatted string"""
+    aus_date = get_australian_datetime()
+    return aus_date.strftime("%B %d, %Y")
+
+# ========================================
+# BACKGROUND SELECTION
+# ========================================
 
 def get_day_of_week_background():
     """Get background video for current day of week"""
     days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-    today_index = datetime.now().weekday()
+    aus_date = get_australian_datetime()
+    today_index = aus_date.weekday()
     day_name = days[today_index]
     
     bg_filename = f"{day_name}_bg.mp4"
@@ -63,10 +84,17 @@ def get_day_of_week_background():
     print(f"     • {default_bg}")
     return None
 
+# ========================================
+# API FETCHING
+# ========================================
 
 def fetch_ai_content(prompt, sign):
     """Fetch content from Groq or HuggingFace"""
-    formatted_prompt = prompt.format(sign=sign, date=datetime.now().strftime("%B %d, %Y"))
+    aus_date_str = get_australian_date_string()
+    
+    formatted_prompt = prompt.format(sign=sign, date=aus_date_str)
+    
+    print(f"    📅 Australian date: {aus_date_str}")
     
     if GROQ_API_KEY:
         try:
@@ -79,11 +107,11 @@ def fetch_ai_content(prompt, sign):
                 json={
                     "model": "llama-3.3-70b-versatile",
                     "messages": [
-                        {"role": "system", "content": "You are a traditional Indian astrologer speaking in a warm, devotional tone. Provide only the final narration script, no explanations."},
+                        {"role": "system", "content": "You are a traditional Indian astrologer speaking in a warm, devotional tone. Provide only the final narration script. Keep it concise and simple for video narration."},
                         {"role": "user", "content": formatted_prompt}
                     ],
                     "temperature": 0.8,
-                    "max_tokens": 300
+                    "max_tokens": 250
                 },
                 timeout=15
             )
@@ -99,7 +127,7 @@ def fetch_ai_content(prompt, sign):
                 headers={"Authorization": f"Bearer {HUGGINGFACE_API_KEY}"},
                 json={
                     "inputs": formatted_prompt,
-                    "parameters": {"max_new_tokens": 300, "temperature": 0.8}
+                    "parameters": {"max_new_tokens": 250, "temperature": 0.8}
                 },
                 timeout=15
             )
@@ -112,16 +140,13 @@ def fetch_ai_content(prompt, sign):
     
     return None
 
-
 def simplify_to_simple_english(text):
-    """Convert complex text to simple, clear English while keeping insight"""
+    """Convert complex text to simple, clear English"""
     if not text:
         return ""
     
-    # Remove markdown and extra formatting
     text = text.replace("**", "").replace("*", "").replace("#", "").strip()
     
-    # Replace complex words with simple ones
     replacements = {
         "planetary alignment": "stars aligning",
         "celestial bodies": "planets",
@@ -137,82 +162,32 @@ def simplify_to_simple_english(text):
         "adversity": "challenges",
         "fortuitous": "lucky",
         "serendipity": "good timing",
-        "contemplation": "thinking",
-        "meditation": "stillness",
-        "introspection": "looking within",
-        "intuition": "inner feeling",
-        "synchronicity": "things lining up",
-        "oscillate": "move",
-        "fluctuation": "ups and downs",
-        "momentum": "energy",
-        "trajectory": "path",
-        "leverage": "use",
-        "capitalize": "take advantage",
-        "precipitate": "cause",
-        "endeavors": "efforts",
-        "optimism": "hope",
-        "vigilance": "awareness",
-        "prudence": "caution",
-        "articulate": "express",
-        "initiate": "start",
-        "culminate": "end",
-        "decipher": "understand",
-        "illuminate": "show",
-        "nurture": "support",
-        "cultivate": "build",
-        "mitigate": "reduce",
-        "augment": "increase",
-        "ameliorate": "improve",
     }
     
     for complex_word, simple_word in replacements.items():
         text = text.replace(complex_word, simple_word)
         text = text.replace(complex_word.capitalize(), simple_word.capitalize())
     
-    # Remove common prefixes
-    prefixes = ["Here is", "Here's", "Today's", "For today", "Namaste", "Based on", "According to"]
-    for prefix in prefixes:
-        if text.lower().startswith(prefix.lower()):
-            text = text[len(prefix):].strip()
-            if text and text[0] in ":,- ":
-                text = text[1:].strip()
-    
-    # Clean up punctuation
-    text = text.strip()
-    if not text:
-        return ""
-    
     return text
-
 
 def clean_and_summarize(text):
     """Clean AI response - keep insight, use simple English, format for video"""
     if not text:
         return ""
     
-    # Step 1: Simplify to basic English
     text = simplify_to_simple_english(text)
     
-    # Step 2: Split into sentences
     sentences = [s.strip() for s in text.replace("!", ".").replace("?", ".").split(".") if s.strip() and len(s.strip()) > 5]
     
-    # Step 3: Keep 4-6 sentences for good insight (not too short, not too long)
     if len(sentences) > 6:
         sentences = sentences[:6]
-    elif len(sentences) < 2:
-        # If very short, at least add some context
-        sentences = sentences
     
-    # Step 4: Filter out very long sentences (>20 words) - break them up
     cleaned_sentences = []
     for sent in sentences:
         words = sent.split()
         
-        # If too long, try to break at logical point
         if len(words) > 20:
-            # Find middle point
             mid = len(words) // 2
-            # Look for best breaking point (comma, "and", "or")
             first_half = " ".join(words[:mid])
             second_half = " ".join(words[mid:])
             
@@ -222,13 +197,10 @@ def clean_and_summarize(text):
         else:
             cleaned_sentences.append(sent)
     
-    # Step 5: Join sentences
     result = ". ".join(cleaned_sentences)
     if result and result[-1] not in ".!?":
         result += "."
     
-    # Step 6: Format for video display - intelligent line breaking
-    # Max 50-60 chars per line for readability on video
     words = result.split()
     lines = []
     current_line = []
@@ -237,7 +209,6 @@ def clean_and_summarize(text):
         current_line.append(word)
         line_text = " ".join(current_line)
         
-        # Break line if it gets too long or at sentence end
         if len(line_text) > 55 or word.endswith("."):
             lines.append(" ".join(current_line))
             current_line = []
@@ -248,7 +219,6 @@ def clean_and_summarize(text):
     result = "\n".join(lines)
     
     return result
-
 
 def get_content_for_sign(sign):
     """Get horoscope, wealth, and health content"""
@@ -272,6 +242,9 @@ def get_content_for_sign(sign):
     print(f"  ✅ Content ready")
     return {'horoscope': horo, 'wealth': wealth, 'health': health}
 
+# ========================================
+# VIDEO CREATION
+# ========================================
 
 def create_heading(text, font_size, duration, fade=True):
     """Create heading with underline"""
@@ -295,7 +268,6 @@ def create_heading(text, font_size, duration, fade=True):
         underline = underline.fadein(0.8).fadeout(0.8)
     
     return heading, underline
-
 
 def create_text_chunks(text, font_size, total_duration):
     """Split text into smart chunks"""
@@ -351,35 +323,29 @@ def create_text_chunks(text, font_size, total_duration):
     
     return text_clips
 
-
 def create_short(sign, content):
     """Create video short"""
     print(f"  🎬 Creating video for {sign}...")
-    screen_size = SHORTS_CONFIG['resolution']
     
-    # Get Australian date for video display
+    # Get Australian date for video
     aus_datetime = get_australian_datetime()
     aus_date_display = aus_datetime.strftime("%d %b %Y")
     
-    # TIMING ADJUSTED FOR READABILITY:
-    # - Horoscope: 16 seconds (was 15)
-    # - Wealth: 12 seconds (was 12)
-    # - Health: 12 seconds (was 12)
-    # - Subscribe: 5 seconds (was 5)
-    # Total: 45 seconds + 14 seconds padding = 59 seconds
+    screen_size = SHORTS_CONFIG['resolution']
     
-    AVAILABLE_TIME = 45
-    HOROSCOPE_TIME = 16  # Increased from 15
+    # Timing
+    HOROSCOPE_TIME = 16
     WEALTH_TIME = 12
     HEALTH_TIME = 12
     SUBSCRIBE_DURATION = 5
     TARGET_DURATION = 59
     
-    # Calculate actual times based on content length
     horo_length = len(content['horoscope'])
     wealth_length = len(content['wealth'])
     health_length = len(content['health'])
     total_content_length = horo_length + wealth_length + health_length
+    
+    AVAILABLE_TIME = 45
     
     if total_content_length > 0:
         horo_time = max(16, int((horo_length / total_content_length) * AVAILABLE_TIME))
@@ -390,13 +356,12 @@ def create_short(sign, content):
         wealth_time = WEALTH_TIME
         health_time = HEALTH_TIME
     
-    # Get day-of-week background
+    # Load background
     bg_video_path = get_day_of_week_background()
     if not bg_video_path:
         print(f"  ❌ No background video available")
         return None
     
-    # Load and crop background
     bg_original = VideoFileClip(bg_video_path)
     target_w, target_h = screen_size
     bg_w, bg_h = bg_original.size
@@ -433,10 +398,10 @@ def create_short(sign, content):
     DATE_Y = SIGN_Y + 130
     HORO_HEADING_Y = HEADING_Y - 60
     
-    # Title (increased by 1)
+    # Title
     title_heading, title_underline = create_heading(
         f"✨ {sign} ✨",
-        TEXT_STYLE['title_font_size'] + 1,  # +1
+        TEXT_STYLE['title_font_size'] + 1,
         MAIN_DURATION,
         fade=False
     )
@@ -445,62 +410,62 @@ def create_short(sign, content):
     all_clips.extend([title_heading, title_underline])
     
     date_clip = TextClip(
-        aus_date_display,  # Use Australian date
-        fontsize=36,  # Increased from 35 (by 1)
+        aus_date_display,
+        fontsize=36,
         color="#F5F5F5",
         method='label'
     ).set_duration(MAIN_DURATION).set_position(('center', DATE_Y))
     all_clips.append(date_clip)
     
-    # Horoscope (increased by 1)
+    # Horoscope
     horo_heading, horo_underline = create_heading(
         "🌙 Daily Horoscope",
-        TEXT_STYLE['content_font_size'] + 1,  # +1
+        TEXT_STYLE['content_font_size'] + 1,
         horo_time
     )
     horo_heading = horo_heading.set_position(('center', HORO_HEADING_Y)).set_start(current_time)
     horo_underline = horo_underline.set_position(('center', HORO_HEADING_Y + 100)).set_start(current_time)
     all_clips.extend([horo_heading, horo_underline])
     
-    horo_chunks = create_text_chunks(content['horoscope'], TEXT_STYLE['content_font_size'] - 4, horo_time)  # -4 to keep proportional
+    horo_chunks = create_text_chunks(content['horoscope'], TEXT_STYLE['content_font_size'] - 4, horo_time)
     for chunk in horo_chunks:
         all_clips.append(chunk.set_position(('center', TEXT_Y)).set_start(current_time + chunk.start))
     current_time += horo_time
     
-    # Wealth (increased by 1)
+    # Wealth
     wealth_heading, wealth_underline = create_heading(
         "💰 Wealth Tips",
-        TEXT_STYLE['content_font_size'] + 1,  # +1
+        TEXT_STYLE['content_font_size'] + 1,
         wealth_time
     )
     wealth_heading = wealth_heading.set_position(('center', HORO_HEADING_Y)).set_start(current_time)
     wealth_underline = wealth_underline.set_position(('center', HORO_HEADING_Y + 100)).set_start(current_time)
     all_clips.extend([wealth_heading, wealth_underline])
     
-    wealth_chunks = create_text_chunks(content['wealth'], TEXT_STYLE['tip_font_size'] - 4, wealth_time)  # -4 to keep proportional
+    wealth_chunks = create_text_chunks(content['wealth'], TEXT_STYLE['tip_font_size'] - 4, wealth_time)
     for chunk in wealth_chunks:
         all_clips.append(chunk.set_position(('center', TEXT_Y)).set_start(current_time + chunk.start))
     current_time += wealth_time
     
-    # Health (increased by 1)
+    # Health
     health_heading, health_underline = create_heading(
         "🏥 Health Tips",
-        TEXT_STYLE['content_font_size'] + 1,  # +1
+        TEXT_STYLE['content_font_size'] + 1,
         health_time
     )
     health_heading = health_heading.set_position(('center', HORO_HEADING_Y)).set_start(current_time)
     health_underline = health_underline.set_position(('center', HORO_HEADING_Y + 100)).set_start(current_time)
     all_clips.extend([health_heading, health_underline])
     
-    health_chunks = create_text_chunks(content['health'], TEXT_STYLE['tip_font_size'] - 4, health_time)  # -4 to keep proportional
+    health_chunks = create_text_chunks(content['health'], TEXT_STYLE['tip_font_size'] - 4, health_time)
     for chunk in health_chunks:
         all_clips.append(chunk.set_position(('center', TEXT_Y)).set_start(current_time + chunk.start))
     current_time += health_time
     
-    # Subscribe (increased by 1)
+    # Subscribe
     sub_text = TextClip(
         "🔔 SUBSCRIBE\n\nLIKE • SHARE • COMMENT",
-        fontsize=61,  # Increased from 60 (by 1)
+        fontsize=61,
         color="#FFD700",
         font='Arial-Bold',
         method='label',
@@ -540,7 +505,7 @@ def create_short(sign, content):
     
     print(f"  ✅ Video created: {output_file}")
     
-    # Also save to Instagram Reels folder (same video)
+    # Also save to Instagram Reels folder
     insta_output = os.path.join(
         VIDEO_CONFIG['output_folder'],
         'instagram_reels',
@@ -561,6 +526,9 @@ def create_short(sign, content):
     
     return output_file
 
+# ========================================
+# MAIN
+# ========================================
 
 def main():
     parser = argparse.ArgumentParser(description="Generate a zodiac sign video short")
@@ -572,7 +540,8 @@ def main():
     print("="*60)
     print(f"🌟 GENERATING VIDEO FOR {sign.upper()}")
     print("="*60)
-    print(f"📅 {datetime.now().strftime('%B %d, %Y')}")
+    aus_now = get_australian_datetime()
+    print(f"📅 {aus_now.strftime('%B %d, %Y')}")
     print("-"*60)
     
     try:
@@ -588,7 +557,6 @@ def main():
         import traceback
         traceback.print_exc()
         sys.exit(1)
-
 
 if __name__ == "__main__":
     main()
