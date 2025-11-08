@@ -334,7 +334,7 @@ def create_short(sign, content):
     screen_size = SHORTS_CONFIG['resolution']
     
     # Timing
-    HOROSCOPE_TIME = 16
+    HOROSCOPE_TIME = 30
     WEALTH_TIME = 12
     HEALTH_TIME = 12
     SUBSCRIBE_DURATION = 5
@@ -348,7 +348,7 @@ def create_short(sign, content):
     AVAILABLE_TIME = 45
     
     if total_content_length > 0:
-        horo_time = max(16, int((horo_length / total_content_length) * AVAILABLE_TIME))
+        horo_time = max(30, int((horo_length / total_content_length) * AVAILABLE_TIME))
         wealth_time = max(12, int((wealth_length / total_content_length) * AVAILABLE_TIME))
         health_time = max(12, AVAILABLE_TIME - horo_time - wealth_time)
     else:
