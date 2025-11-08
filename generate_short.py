@@ -357,19 +357,38 @@ def create_short(sign, content):
     print(f"  🎬 Creating video for {sign}...")
     screen_size = SHORTS_CONFIG['resolution']
     
-    # Calculate timing
+    # Get Australian date for video display
+    aus_datetime = get_australian_datetime()
+    aus_date_display = aus_datetime.strftime("%d %b %Y")
+    
+    # TIMING ADJUSTED FOR READABILITY:
+    # - Horoscope: 16 seconds (was 15)
+    # - Wealth: 12 seconds (was 12)
+    # - Health: 12 seconds (was 12)
+    # - Subscribe: 5 seconds (was 5)
+    # Total: 45 seconds + 14 seconds padding = 59 seconds
+    
+    AVAILABLE_TIME = 45
+    HOROSCOPE_TIME = 16  # Increased from 15
+    WEALTH_TIME = 12
+    HEALTH_TIME = 12
+    SUBSCRIBE_DURATION = 5
+    TARGET_DURATION = 59
+    
+    # Calculate actual times based on content length
     horo_length = len(content['horoscope'])
     wealth_length = len(content['wealth'])
     health_length = len(content['health'])
     total_content_length = horo_length + wealth_length + health_length
     
-    AVAILABLE_TIME = 54
-    SUBSCRIBE_DURATION = 5
-    TARGET_DURATION = 59
-    
-    horo_time = max(15, int((horo_length / total_content_length) * AVAILABLE_TIME))
-    wealth_time = max(12, int((wealth_length / total_content_length) * AVAILABLE_TIME))
-    health_time = max(12, AVAILABLE_TIME - horo_time - wealth_time)
+    if total_content_length > 0:
+        horo_time = max(16, int((horo_length / total_content_length) * AVAILABLE_TIME))
+        wealth_time = max(12, int((wealth_length / total_content_length) * AVAILABLE_TIME))
+        health_time = max(12, AVAILABLE_TIME - horo_time - wealth_time)
+    else:
+        horo_time = HOROSCOPE_TIME
+        wealth_time = WEALTH_TIME
+        health_time = HEALTH_TIME
     
     # Get day-of-week background
     bg_video_path = get_day_of_week_background()
@@ -414,10 +433,10 @@ def create_short(sign, content):
     DATE_Y = SIGN_Y + 130
     HORO_HEADING_Y = HEADING_Y - 60
     
-    # Title
+    # Title (increased by 1)
     title_heading, title_underline = create_heading(
         f"✨ {sign} ✨",
-        TEXT_STYLE['title_font_size'],
+        TEXT_STYLE['title_font_size'] + 1,  # +1
         MAIN_DURATION,
         fade=False
     )
@@ -426,62 +445,62 @@ def create_short(sign, content):
     all_clips.extend([title_heading, title_underline])
     
     date_clip = TextClip(
-        datetime.now().strftime("%d %b %Y"),
-        fontsize=35,
+        aus_date_display,  # Use Australian date
+        fontsize=36,  # Increased from 35 (by 1)
         color="#F5F5F5",
         method='label'
     ).set_duration(MAIN_DURATION).set_position(('center', DATE_Y))
     all_clips.append(date_clip)
     
-    # Horoscope
+    # Horoscope (increased by 1)
     horo_heading, horo_underline = create_heading(
         "🌙 Daily Horoscope",
-        TEXT_STYLE['content_font_size'],
+        TEXT_STYLE['content_font_size'] + 1,  # +1
         horo_time
     )
     horo_heading = horo_heading.set_position(('center', HORO_HEADING_Y)).set_start(current_time)
     horo_underline = horo_underline.set_position(('center', HORO_HEADING_Y + 100)).set_start(current_time)
     all_clips.extend([horo_heading, horo_underline])
     
-    horo_chunks = create_text_chunks(content['horoscope'], TEXT_STYLE['content_font_size'] - 5, horo_time)
+    horo_chunks = create_text_chunks(content['horoscope'], TEXT_STYLE['content_font_size'] - 4, horo_time)  # -4 to keep proportional
     for chunk in horo_chunks:
         all_clips.append(chunk.set_position(('center', TEXT_Y)).set_start(current_time + chunk.start))
     current_time += horo_time
     
-    # Wealth
+    # Wealth (increased by 1)
     wealth_heading, wealth_underline = create_heading(
         "💰 Wealth Tips",
-        TEXT_STYLE['content_font_size'],
+        TEXT_STYLE['content_font_size'] + 1,  # +1
         wealth_time
     )
     wealth_heading = wealth_heading.set_position(('center', HORO_HEADING_Y)).set_start(current_time)
     wealth_underline = wealth_underline.set_position(('center', HORO_HEADING_Y + 100)).set_start(current_time)
     all_clips.extend([wealth_heading, wealth_underline])
     
-    wealth_chunks = create_text_chunks(content['wealth'], TEXT_STYLE['tip_font_size'] - 5, wealth_time)
+    wealth_chunks = create_text_chunks(content['wealth'], TEXT_STYLE['tip_font_size'] - 4, wealth_time)  # -4 to keep proportional
     for chunk in wealth_chunks:
         all_clips.append(chunk.set_position(('center', TEXT_Y)).set_start(current_time + chunk.start))
     current_time += wealth_time
     
-    # Health
+    # Health (increased by 1)
     health_heading, health_underline = create_heading(
         "🏥 Health Tips",
-        TEXT_STYLE['content_font_size'],
+        TEXT_STYLE['content_font_size'] + 1,  # +1
         health_time
     )
     health_heading = health_heading.set_position(('center', HORO_HEADING_Y)).set_start(current_time)
     health_underline = health_underline.set_position(('center', HORO_HEADING_Y + 100)).set_start(current_time)
     all_clips.extend([health_heading, health_underline])
     
-    health_chunks = create_text_chunks(content['health'], TEXT_STYLE['tip_font_size'] - 5, health_time)
+    health_chunks = create_text_chunks(content['health'], TEXT_STYLE['tip_font_size'] - 4, health_time)  # -4 to keep proportional
     for chunk in health_chunks:
         all_clips.append(chunk.set_position(('center', TEXT_Y)).set_start(current_time + chunk.start))
     current_time += health_time
     
-    # Subscribe
+    # Subscribe (increased by 1)
     sub_text = TextClip(
         "🔔 SUBSCRIBE\n\nLIKE • SHARE • COMMENT",
-        fontsize=60,
+        fontsize=61,  # Increased from 60 (by 1)
         color="#FFD700",
         font='Arial-Bold',
         method='label',
