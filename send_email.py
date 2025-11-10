@@ -1,49 +1,50 @@
 #!/usr/bin/env python3
 """
-Send email notifications for AstroFinance daily reports
+Send email notifications using Resend (free, no password needed)
+Free tier: 100 emails/day forever
 Usage: python send_email.py --status success --generated Aries,Taurus --uploaded Aries,Taurus
 """
 
 import os
 import sys
 import argparse
-import smtplib
+import requests
 from datetime import datetime
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 
-def send_email(status, generated_signs, uploaded_signs, failed_signs, youtube_urls):
-    """Send email notification"""
+def send_email(status, generated_signs, uploaded_signs, failed_signs):
+    """Send email using Resend API (free, no password)"""
     
-    # Get email config from environment
-    email_from = os.getenv('EMAIL_FROM', '')
-    email_password = os.getenv('EMAIL_PASSWORD', '')
+    # Get Resend API key from environment
+    resend_api_key = os.getenv('RESEND_API_KEY', '')
     email_to = os.getenv('EMAIL_TO', '')
-    smtp_server = os.getenv('SMTP_SERVER', 'smtp.gmail.com')
-    smtp_port = int(os.getenv('SMTP_PORT', '587'))
     
-    if not all([email_from, email_password, email_to]):
-        print("⚠️ Email credentials not configured")
+    if not resend_api_key or not email_to:
+        print("⚠️ Missing credentials")
+        print("   Set in GitHub Secrets: RESEND_API_KEY, EMAIL_TO")
         return False
     
     try:
         # Parse inputs
-        generated = generated_signs.split(',') if generated_signs else []
-        uploaded = uploaded_signs.split(',') if uploaded_signs else []
-        failed = failed_signs.split(',') if failed_signs else []
-        urls = dict(item.split(':') for item in youtube_urls.split(',')) if youtube_urls else {}
+        generated = [s.strip() for s in generated_signs.split(',') if s.strip()]
+        uploaded_with_urls = {}
         
-        # Build email subject
+        for item in uploaded_signs.split(','):
+            if item.strip() and ':' in item:
+                sign, url = item.split(':', 1)
+                uploaded_with_urls[sign.strip()] = url.strip()
+        
+        failed = [s.strip() for s in failed_signs.split(',') if s.strip()]
+        
+        # Build subject
         timestamp = datetime.now().strftime("%B %d, %Y")
-        
         if status == 'success':
             subject = f"✅ AstroFinance Daily Report - {timestamp}"
-            color = "#27ae60"  # Green
+            color = "#27ae60"
         else:
             subject = f"⚠️ AstroFinance Daily Report - {timestamp}"
-            color = "#e74c3c"  # Red
+            color = "#e74c3c"
         
-        # Build email body
+        # Build HTML email
         html_body = f"""
         <html>
         <head>
@@ -72,15 +73,15 @@ def send_email(status, generated_signs, uploaded_signs, failed_signs, youtube_ur
                     <div class="section-title">🎬 GENERATION</div>
                     <div class="sign-list">
                         <div class="sign">✅ Generated: {len(generated)}/12</div>
-                        {chr(10).join(f'<div class="sign success">  ✅ {s}</div>' for s in sorted(generated)) if generated else ''}
+                        {chr(10).join(f'<div class="sign success">  ✅ {s}</div>' for s in sorted(generated)) if generated else '<div class="sign">  None</div>'}
                     </div>
                 </div>
                 
                 <div class="section">
-                    <div class="section-title">📤 UPLOAD</div>
+                    <div class="section-title">📤 UPLOAD TO YOUTUBE</div>
                     <div class="sign-list">
-                        <div class="sign">✅ Uploaded: {len(uploaded)}/12</div>
-                        {chr(10).join(f'<div class="sign success">  ✅ <a href="{urls.get(s, "#")}" class="link">{s}</a></div>' for s in sorted(uploaded)) if uploaded else ''}
+                        <div class="sign">✅ Uploaded: {len(uploaded_with_urls)}/12</div>
+                        {chr(10).join(f'<div class="sign success">  ✅ <a href="{uploaded_with_urls.get(s, "#")}" class="link">{s}</a></div>' for s in sorted(uploaded_with_urls.keys())) if uploaded_with_urls else '<div class="sign">  None</div>'}
                     </div>
                 </div>
         """
@@ -90,40 +91,47 @@ def send_email(status, generated_signs, uploaded_signs, failed_signs, youtube_ur
                 <div class="section">
                     <div class="section-title">❌ FAILED</div>
                     <div class="sign-list">
-                        {chr(10).join(f'<div class="sign failed">  ❌ {s}</div>' for s in sorted(failed)) if failed else ''}
+                        {chr(10).join(f'<div class="sign failed">  ❌ {s}</div>' for s in sorted(failed))}
                     </div>
                 </div>
             """
         
         html_body += f"""
                 <div class="footer">
-                    <p>Automated report from AstroFinance</p>
-                    <p>Workflow: <a href="https://github.com/${{GITHUB_REPOSITORY}}/actions/runs/${{GITHUB_RUN_ID}}" class="link">View on GitHub</a></p>
+                    <p>Automated daily report from AstroFinance</p>
                 </div>
             </div>
         </body>
         </html>
         """
         
-        # Send email
-        msg = MIMEMultipart()
-        msg['From'] = email_from
-        msg['To'] = email_to
-        msg['Subject'] = subject
-        msg.attach(MIMEText(html_body, 'html'))
+        # Send via Resend API
+        url = "https://api.resend.com/emails"
+        headers = {
+            "Authorization": f"Bearer {resend_api_key}",
+            "Content-Type": "application/json"
+        }
+        
+        payload = {
+            "from": "AstroFinance <noreply@astrofinance.ai>",
+            "to": email_to,
+            "subject": subject,
+            "html": html_body
+        }
         
         print(f"📧 Sending email to {email_to}...")
-        server = smtplib.SMTP(smtp_server, smtp_port)
-        server.starttls()
-        server.login(email_from, email_password)
-        server.send_message(msg)
-        server.quit()
+        response = requests.post(url, headers=headers, json=payload, timeout=10)
         
-        print(f"✅ Email sent successfully!")
-        return True
+        if response.status_code in [200, 201]:
+            print(f"✅ Email sent successfully!")
+            return True
+        else:
+            print(f"❌ Email failed: {response.status_code}")
+            print(f"   {response.text}")
+            return False
         
     except Exception as e:
-        print(f"❌ Email failed: {e}")
+        print(f"❌ Email error: {e}")
         return False
 
 
@@ -131,10 +139,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Send AstroFinance email report")
     parser.add_argument('--status', required=True, choices=['success', 'failure'], help='Report status')
     parser.add_argument('--generated', default='', help='Comma-separated list of generated signs')
-    parser.add_argument('--uploaded', default='', help='Comma-separated list of uploaded signs with URLs (sign:url,sign:url)')
+    parser.add_argument('--uploaded', default='', help='Comma-separated list of uploaded signs (sign:url,sign:url)')
     parser.add_argument('--failed', default='', help='Comma-separated list of failed signs')
     
     args = parser.parse_args()
     
-    success = send_email(args.status, args.generated, args.uploaded, args.failed, args.uploaded)
+    success = send_email(args.status, args.generated, args.uploaded, args.failed)
     sys.exit(0 if success else 1)
