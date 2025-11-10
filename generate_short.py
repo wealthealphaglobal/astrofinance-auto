@@ -94,8 +94,10 @@ def fetch_ai_content(prompt, sign, content_type='general'):
     
     formatted_prompt = prompt.format(sign=sign, date=aus_date_str)
     
-    # Add line limit instructions for wealth and health
-    if content_type in ['wealth', 'health']:
+    # Add line limit instructions based on content type
+    if content_type == 'horoscope':
+        formatted_prompt += "\n\nIMPORTANT: Summarize to exactly 26 lines total. Arrange into 3 paragraphs (9 lines each, with 1 blank line between paragraphs). Format:\n\n[Paragraph 1 - 9 lines]\n\n[Paragraph 2 - 9 lines]\n\n[Paragraph 3 - 8 lines]"
+    elif content_type in ['wealth', 'health']:
         formatted_prompt += "\n\nIMPORTANT: Keep your response to maximum 9 lines. Summarize concisely."
     
     print(f"    📅 Australian date: {aus_date_str}")
@@ -485,8 +487,9 @@ def create_short(sign, content):
         fps=SHORTS_CONFIG['fps'],
         codec='libx264',
         audio_codec='aac',
-        preset='ultrafast',
-        threads=4,
+        preset='medium',  # Changed from ultrafast for better compression
+        bitrate='2000k',  # Reduce bitrate
+        audio_bitrate='128k',  # Lower audio bitrate
         logger=None,
         verbose=False
     )
