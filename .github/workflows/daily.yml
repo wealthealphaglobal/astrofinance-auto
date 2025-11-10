@@ -2,8 +2,8 @@ name: Daily AstroFinance Content Generator
 
 on:
   schedule:
-    - cron: '0 8 * * *'  # Daily at 8 AM UTC
-  workflow_dispatch:  # Manual trigger
+#    - cron: '0 8 * * *'  # Daily at 8 AM UTC
+#  workflow_dispatch:  # Manual trigger
 
 permissions:
   contents: write
