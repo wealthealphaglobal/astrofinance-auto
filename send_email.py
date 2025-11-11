@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-Send email notifications using Resend (free, no password needed)
-Free tier: 100 emails/day forever
+Send email notifications using Resend API
 Usage: python send_email.py --status success --generated Aries,Taurus --uploaded Aries,Taurus
 """
 
@@ -12,15 +11,17 @@ import requests
 from datetime import datetime
 
 def send_email(status, generated_signs, uploaded_signs, failed_signs):
-    """Send email using Resend API (free, no password)"""
+    """Send email using Resend API"""
     
     # Get Resend API key from environment
     resend_api_key = os.getenv('RESEND_API_KEY', '')
-    email_to = os.getenv('EMAIL_TO', '')
     
-    if not resend_api_key or not email_to:
-        print("⚠️ Missing credentials")
-        print("   Set in GitHub Secrets: RESEND_API_KEY, EMAIL_TO")
+    # Hardcoded emails
+    email_from = "onboarding@resend.dev"
+    email_to = "tumu.mtm@gmail.com"
+    
+    if not resend_api_key:
+        print("⚠️ Missing RESEND_API_KEY in GitHub Secrets")
         return False
     
     try:
@@ -113,13 +114,14 @@ def send_email(status, generated_signs, uploaded_signs, failed_signs):
         }
         
         payload = {
-            "from": "AstroFinance <noreply@astrofinance.ai>",
+            "from": email_from,
             "to": email_to,
             "subject": subject,
             "html": html_body
         }
         
         print(f"📧 Sending email to {email_to}...")
+        print(f"   From: {email_from}")
         response = requests.post(url, headers=headers, json=payload, timeout=10)
         
         if response.status_code in [200, 201]:
