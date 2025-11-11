@@ -18,26 +18,12 @@ permissions:
   contents: read
 
 jobs:
-  setup:
-    runs-on: ubuntu-latest
-    outputs:
-      generated_signs: ${{ steps.collect.outputs.generated }}
-      uploaded_signs: ${{ steps.collect.outputs.uploaded }}
-      failed_signs: ${{ steps.collect.outputs.failed }}
-    steps:
-      - name: Initialize tracking
-        run: |
-          mkdir -p workflow_data
-          echo "" > workflow_data/generated.txt
-          echo "" > workflow_data/uploaded.txt
-          echo "" > workflow_data/failed.txt
-
   process-signs:
     runs-on: ubuntu-latest
-    needs: setup
     strategy:
       matrix:
         sign: [Aries, Taurus, Gemini, Cancer, Leo, Virgo, Libra, Scorpio, Sagittarius, Capricorn, Aquarius, Pisces]
+      max-parallel: 12
     continue-on-error: true
 
     steps:
@@ -75,59 +61,58 @@ jobs:
           HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
         run: |
-          if python generate_short.py --sign "${{ matrix.sign }}" 2>&1 | tee generate_${{ matrix.sign }}.log; then
-            echo "generated=true" >> $GITHUB_OUTPUT
-            echo "${{ matrix.sign }}" >> workflow_data/generated.txt
+          if python generate_short.py --sign "${{ matrix.sign }}" > /tmp/generate_${{ matrix.sign }}.log 2>&1; then
+            echo "GENERATED_${{ matrix.sign }}=true" >> $GITHUB_ENV
+            echo "✅ ${{ matrix.sign }} generated"
           else
-            echo "generated=false" >> $GITHUB_OUTPUT
-            echo "${{ matrix.sign }}" >> workflow_data/failed.txt
-            exit 1
+            echo "GENERATED_${{ matrix.sign }}=false" >> $GITHUB_ENV
+            echo "❌ ${{ matrix.sign }} generation failed"
+            cat /tmp/generate_${{ matrix.sign }}.log
           fi
 
       # ==================== UPLOAD ====================
       - name: Upload ${{ matrix.sign }} to YouTube
-        if: steps.generate.outcome == 'success'
+        if: env.GENERATED_${{ matrix.sign }} == 'true'
         id: upload
         env:
           YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
           YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
         run: |
-          if python upload_youtube.py --sign "${{ matrix.sign }}" --shorts --no-cleanup 2>&1 | tee upload_${{ matrix.sign }}.log; then
-            echo "uploaded=true" >> $GITHUB_OUTPUT
-            # Extract YouTube URL
-            YOUTUBE_URL=$(grep "🔗 URL:" upload_${{ matrix.sign }}.log | tail -n 1 | sed 's/.*🔗 URL: //')
-            echo "url=$YOUTUBE_URL" >> $GITHUB_OUTPUT
-            echo "${{ matrix.sign }}:$YOUTUBE_URL" >> workflow_data/uploaded.txt
+          if python upload_youtube.py --sign "${{ matrix.sign }}" --shorts --no-cleanup > /tmp/upload_${{ matrix.sign }}.log 2>&1; then
+            YOUTUBE_URL=$(grep "🔗 URL:" /tmp/upload_${{ matrix.sign }}.log | tail -n 1 | sed 's/.*🔗 URL: //')
+            echo "UPLOADED_${{ matrix.sign }}=true" >> $GITHUB_ENV
+            echo "URL_${{ matrix.sign }}=$YOUTUBE_URL" >> $GITHUB_ENV
+            echo "✅ ${{ matrix.sign }} uploaded: $YOUTUBE_URL"
           else
-            echo "uploaded=false" >> $GITHUB_OUTPUT
-            echo "${{ matrix.sign }}" >> workflow_data/failed.txt
-            exit 1
+            echo "UPLOADED_${{ matrix.sign }}=false" >> $GITHUB_ENV
+            echo "❌ ${{ matrix.sign }} upload failed"
+            cat /tmp/upload_${{ matrix.sign }}.log
           fi
 
       # ==================== DELETE ====================
       - name: Delete ${{ matrix.sign }} files
-        if: steps.upload.outcome == 'success'
+        if: env.UPLOADED_${{ matrix.sign }} == 'true'
         run: |
           rm -f videos/youtube_shorts/${{ matrix.sign }}_*.mp4
           rm -f videos/instagram_reels/${{ matrix.sign }}_*.mp4
+          echo "🗑️ Deleted ${{ matrix.sign }} files"
 
-      - name: Upload logs
+      # ==================== SAVE RESULTS ====================
+      - name: Save results
+        if: always()
+        run: |
+          mkdir -p /tmp/results
+          echo "${{ env.GENERATED_${{ matrix.sign }} }}" > /tmp/results/GENERATED_${{ matrix.sign }}
+          echo "${{ env.UPLOADED_${{ matrix.sign }} }}" > /tmp/results/UPLOADED_${{ matrix.sign }}
+          echo "${{ env.URL_${{ matrix.sign }} }}" > /tmp/results/URL_${{ matrix.sign }}
+
+      - name: Upload results artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: logs-${{ matrix.sign }}
-          path: |
-            generate_${{ matrix.sign }}.log
-            upload_${{ matrix.sign }}.log
-          retention-days: 1
-
-      - name: Persist tracking data
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: workflow-data
-          path: workflow_data/
+          name: results-${{ matrix.sign }}
+          path: /tmp/results/
           retention-days: 1
 
   # ==================== EMAIL NOTIFICATION ====================
@@ -144,43 +129,79 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Install email dependencies
+      - name: Install dependencies
         run: pip install requests
 
-      - name: Download tracking data
+      - name: Download all results
         uses: actions/download-artifact@v4
         with:
-          name: workflow-data
-          path: workflow_data/
+          path: all_results
 
-      - name: Prepare email data
-        id: email_data
+      - name: Compile email data
+        id: compile
         run: |
-          GENERATED=$(grep -v '^$' workflow_data/generated.txt 2>/dev/null | tr '\n' ',' | sed 's/,$//')
-          UPLOADED=$(grep -v '^$' workflow_data/uploaded.txt 2>/dev/null | tr '\n' ',' | sed 's/,$//')
-          FAILED=$(grep -v '^$' workflow_data/failed.txt 2>/dev/null | tr '\n' ',' | sed 's/,$//')
+          python3 << 'EOF'
+          import os
+          import glob
           
-          if [ -z "$FAILED" ]; then
-            STATUS="success"
-          else
-            STATUS="failure"
-          fi
+          SIGNS = ['Aries', 'Taurus', 'Gemini', 'Cancer', 'Leo', 'Virgo', 'Libra', 'Scorpio', 'Sagittarius', 'Capricorn', 'Aquarius', 'Pisces']
           
-          echo "status=$STATUS" >> $GITHUB_OUTPUT
-          echo "generated=$GENERATED" >> $GITHUB_OUTPUT
-          echo "uploaded=$UPLOADED" >> $GITHUB_OUTPUT
-          echo "failed=$FAILED" >> $GITHUB_OUTPUT
+          generated = []
+          uploaded = []
+          failed = []
+          urls = {}
+          
+          for sign in SIGNS:
+              gen_file = f"all_results/results-{sign}/GENERATED_{sign}"
+              up_file = f"all_results/results-{sign}/UPLOADED_{sign}"
+              url_file = f"all_results/results-{sign}/URL_{sign}"
+              
+              gen_status = "false"
+              up_status = "false"
+              
+              if os.path.exists(gen_file):
+                  with open(gen_file) as f:
+                      gen_status = f.read().strip()
+              
+              if os.path.exists(up_file):
+                  with open(up_file) as f:
+                      up_status = f.read().strip()
+              
+              if gen_status == "true":
+                  generated.append(sign)
+              
+              if up_status == "true":
+                  uploaded.append(sign)
+                  if os.path.exists(url_file):
+                      with open(url_file) as f:
+                          url = f.read().strip()
+                          if url:
+                              urls[sign] = url
+              
+              if gen_status == "false" or up_status == "false":
+                  failed.append(sign)
+          
+          # Output for GitHub Actions
+          with open('EMAIL_DATA.txt', 'w') as f:
+              f.write(f"GENERATED={','.join(generated)}\n")
+              f.write(f"UPLOADED={','.join([f'{s}:{urls.get(s, '')}' for s in uploaded])}\n")
+              f.write(f"FAILED={','.join(failed)}\n")
+              f.write(f"STATUS={'success' if not failed else 'failure'}\n")
+          
+          print("Generated:", ','.join(generated))
+          print("Uploaded:", ','.join([f'{s}' for s in uploaded]))
+          print("Failed:", ','.join(failed))
+          EOF
+          
+          cat EMAIL_DATA.txt >> $GITHUB_ENV
 
       - name: Send email report
         env:
-          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
-          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           EMAIL_TO: ${{ secrets.EMAIL_TO }}
-          SMTP_SERVER: ${{ secrets.SMTP_SERVER }}
-          SMTP_PORT: ${{ secrets.SMTP_PORT }}
         run: |
           python send_email.py \
-            --status "${{ steps.email_data.outputs.status }}" \
-            --generated "${{ steps.email_data.outputs.generated }}" \
-            --uploaded "${{ steps.email_data.outputs.uploaded }}" \
-            --failed "${{ steps.email_data.outputs.failed }}"
+            --status "${{ env.STATUS }}" \
+            --generated "${{ env.GENERATED }}" \
+            --uploaded "${{ env.UPLOADED }}" \
+            --failed "${{ env.FAILED }}"
