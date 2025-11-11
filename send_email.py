@@ -16,8 +16,8 @@ def send_email(status, generated_signs, uploaded_signs, failed_signs):
     # Get Resend API key from environment
     resend_api_key = os.getenv('RESEND_API_KEY', '')
     
-    # Hardcoded emails
-    email_from = "onboarding@resend.dev"
+    # Hardcoded emails - use delivered@resend.dev for testing
+    email_from = "delivered@resend.dev"
     email_to = "tumu.mtm@gmail.com"
     
     if not resend_api_key:
