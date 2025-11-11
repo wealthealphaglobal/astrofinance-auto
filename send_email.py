@@ -1,27 +1,29 @@
 #!/usr/bin/env python3
 """
-Send email notifications using Resend API
+Send email notifications using Gmail SMTP
 Usage: python send_email.py --status success --generated Aries,Taurus --uploaded Aries,Taurus
 """
 
 import os
 import sys
 import argparse
-import requests
+import smtplib
 from datetime import datetime
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 def send_email(status, generated_signs, uploaded_signs, failed_signs):
-    """Send email using Resend API"""
+    """Send email using Gmail SMTP"""
     
-    # Get Resend API key from environment
-    resend_api_key = os.getenv('RESEND_API_KEY', '')
+    # Get Gmail app password from environment
+    gmail_password = os.getenv('GMAIL_APP_PASSWORD', '')
     
-    # Hardcoded emails - use delivered@resend.dev for testing
-    email_from = "delivered@resend.dev"
+    # Hardcoded emails
+    email_from = "tumu.mtm@gmail.com"
     email_to = "tumu.mtm@gmail.com"
     
-    if not resend_api_key:
-        print("⚠️ Missing RESEND_API_KEY in GitHub Secrets")
+    if not gmail_password:
+        print("⚠️ Missing GMAIL_APP_PASSWORD in GitHub Secrets")
         return False
     
     try:
@@ -106,34 +108,29 @@ def send_email(status, generated_signs, uploaded_signs, failed_signs):
         </html>
         """
         
-        # Send via Resend API
-        url = "https://api.resend.com/emails"
-        headers = {
-            "Authorization": f"Bearer {resend_api_key}",
-            "Content-Type": "application/json"
-        }
-        
-        payload = {
-            "from": email_from,
-            "to": email_to,
-            "subject": subject,
-            "html": html_body
-        }
-        
+        # Send via Gmail SMTP
         print(f"📧 Sending email to {email_to}...")
-        print(f"   From: {email_from}")
-        response = requests.post(url, headers=headers, json=payload, timeout=10)
         
-        if response.status_code in [200, 201]:
-            print(f"✅ Email sent successfully!")
-            return True
-        else:
-            print(f"❌ Email failed: {response.status_code}")
-            print(f"   {response.text}")
-            return False
+        msg = MIMEMultipart()
+        msg['From'] = email_from
+        msg['To'] = email_to
+        msg['Subject'] = subject
+        msg.attach(MIMEText(html_body, 'html'))
+        
+        # Connect to Gmail SMTP
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls()
+        server.login(email_from, gmail_password)
+        server.send_message(msg)
+        server.quit()
+        
+        print(f"✅ Email sent successfully!")
+        return True
         
     except Exception as e:
-        print(f"❌ Email error: {e}")
+        print(f"❌ Email failed: {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
 
