@@ -72,31 +72,39 @@ jobs:
 
       # ==================== UPLOAD ====================
       - name: Upload ${{ matrix.sign }} to YouTube
-        if: env.GENERATED_${{ matrix.sign }} == 'true'
         id: upload
         env:
           YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
           YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+          GENERATED_STATUS: ${{ env.GENERATED_${{ matrix.sign }} }}
         run: |
-          if python upload_youtube.py --sign "${{ matrix.sign }}" --shorts --no-cleanup > /tmp/upload_${{ matrix.sign }}.log 2>&1; then
-            YOUTUBE_URL=$(grep "🔗 URL:" /tmp/upload_${{ matrix.sign }}.log | tail -n 1 | sed 's/.*🔗 URL: //')
-            echo "UPLOADED_${{ matrix.sign }}=true" >> $GITHUB_ENV
-            echo "URL_${{ matrix.sign }}=$YOUTUBE_URL" >> $GITHUB_ENV
-            echo "✅ ${{ matrix.sign }} uploaded: $YOUTUBE_URL"
+          if [ "${{ env.GENERATED_STATUS }}" = "true" ]; then
+            if python upload_youtube.py --sign "${{ matrix.sign }}" --shorts --no-cleanup > /tmp/upload_${{ matrix.sign }}.log 2>&1; then
+              YOUTUBE_URL=$(grep "🔗 URL:" /tmp/upload_${{ matrix.sign }}.log | tail -n 1 | sed 's/.*🔗 URL: //')
+              echo "UPLOADED_${{ matrix.sign }}=true" >> $GITHUB_ENV
+              echo "URL_${{ matrix.sign }}=$YOUTUBE_URL" >> $GITHUB_ENV
+              echo "✅ ${{ matrix.sign }} uploaded: $YOUTUBE_URL"
+            else
+              echo "UPLOADED_${{ matrix.sign }}=false" >> $GITHUB_ENV
+              echo "❌ ${{ matrix.sign }} upload failed"
+              cat /tmp/upload_${{ matrix.sign }}.log
+            fi
           else
             echo "UPLOADED_${{ matrix.sign }}=false" >> $GITHUB_ENV
-            echo "❌ ${{ matrix.sign }} upload failed"
-            cat /tmp/upload_${{ matrix.sign }}.log
+            echo "⏭️ Skipped upload for ${{ matrix.sign }}"
           fi
 
       # ==================== DELETE ====================
       - name: Delete ${{ matrix.sign }} files
-        if: env.UPLOADED_${{ matrix.sign }} == 'true'
+        env:
+          UPLOADED_STATUS: ${{ env.UPLOADED_${{ matrix.sign }} }}
         run: |
-          rm -f videos/youtube_shorts/${{ matrix.sign }}_*.mp4
-          rm -f videos/instagram_reels/${{ matrix.sign }}_*.mp4
-          echo "🗑️ Deleted ${{ matrix.sign }} files"
+          if [ "${{ env.UPLOADED_STATUS }}" = "true" ]; then
+            rm -f videos/youtube_shorts/${{ matrix.sign }}_*.mp4
+            rm -f videos/instagram_reels/${{ matrix.sign }}_*.mp4
+            echo "🗑️ Deleted ${{ matrix.sign }} files"
+          fi
 
       # ==================== SAVE RESULTS ====================
       - name: Save results
