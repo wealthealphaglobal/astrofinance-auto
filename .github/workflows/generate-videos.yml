@@ -2,7 +2,7 @@ name: Auto-Generate & Upload Videos for All Zodiac Signs
 
 on:
   schedule:
-    - cron: '0 20 * * *'  # Runs daily at 6 AM AEDT (Australian Eastern Daylight Time) = 20:00 UTC previous day
+    - cron: '0 20 * * *'  # Daily at 6 AM AEDT
   workflow_dispatch:
     inputs:
       auto_upload:
@@ -18,461 +18,169 @@ permissions:
   contents: read
 
 jobs:
-  aries:
+  setup:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    outputs:
+      generated_signs: ${{ steps.collect.outputs.generated }}
+      uploaded_signs: ${{ steps.collect.outputs.uploaded }}
+      failed_signs: ${{ steps.collect.outputs.failed }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Initialize tracking
+        run: |
+          mkdir -p workflow_data
+          echo "" > workflow_data/generated.txt
+          echo "" > workflow_data/uploaded.txt
+          echo "" > workflow_data/failed.txt
+
+  process-signs:
+    runs-on: ubuntu-latest
+    needs: setup
+    strategy:
+      matrix:
+        sign: [Aries, Taurus, Gemini, Cancer, Leo, Virgo, Libra, Scorpio, Sagittarius, Capricorn, Aquarius, Pisces]
+    continue-on-error: true
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-      - run: sudo apt-get update && sudo apt-get install -y ffmpeg imagemagick && sudo sed -i '/<policy domain="path" rights="none" pattern="@\*"/d' /etc/ImageMagick-6/policy.xml
-      - run: pip install -r requirements.txt
-      - run: mkdir -p videos/youtube_shorts/ videos/instagram_reels/
-      - run: echo "🌍 Australian Date/Time:" && python -c "from datetime import datetime; import pytz; tz = pytz.timezone('Australia/Sydney'); print(datetime.now(tz).strftime('%A, %B %d, %Y at %I:%M %p %Z'))"
-      - run: python generate_short.py --sign "Aries"
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg imagemagick
+          sudo sed -i '/<policy domain="path" rights="none" pattern="@\*"/d' /etc/ImageMagick-6/policy.xml
+          python -m pip install --upgrade pip
+          pip install moviepy==1.0.3 gTTS requests Pillow imageio imageio-ffmpeg pyyaml
+          pip install google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client pytz
+
+      - name: Setup media
+        run: |
+          mkdir -p videos/youtube_shorts/ videos/instagram_reels/
+          if [ ! -f "background.mp4" ]; then
+            python -c "from moviepy.editor import ColorClip; clip = ColorClip(size=(1080, 1920), color=(10, 10, 40), duration=60); clip.write_videofile('background.mp4', fps=30, codec='libx264', audio=False, logger=None)"
+          fi
+          if [ ! -f "om_mantra.mp3" ]; then
+            python -c "from moviepy.editor import AudioClip; audio = AudioClip(lambda t: 0, duration=300, fps=44100); audio.write_audiofile('om_mantra.mp3', logger=None)"
+          fi
+
+      # ==================== GENERATE ====================
+      - name: Generate ${{ matrix.sign }} video
+        id: generate
         env:
           HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-      - run: python upload_youtube.py --sign "Aries" --shorts
+        run: |
+          if python generate_short.py --sign "${{ matrix.sign }}" 2>&1 | tee generate_${{ matrix.sign }}.log; then
+            echo "generated=true" >> $GITHUB_OUTPUT
+            echo "${{ matrix.sign }}" >> workflow_data/generated.txt
+          else
+            echo "generated=false" >> $GITHUB_OUTPUT
+            echo "${{ matrix.sign }}" >> workflow_data/failed.txt
+            exit 1
+          fi
+
+      # ==================== UPLOAD ====================
+      - name: Upload ${{ matrix.sign }} to YouTube
+        if: steps.generate.outcome == 'success'
+        id: upload
         env:
           YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
           YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
-        if: env.YOUTUBE_CLIENT_ID != '' && github.event.inputs.auto_upload != 'false'
-        continue-on-error: true
-      - name: Upload YouTube Shorts artifact (backup)
+        run: |
+          if python upload_youtube.py --sign "${{ matrix.sign }}" --shorts --no-cleanup 2>&1 | tee upload_${{ matrix.sign }}.log; then
+            echo "uploaded=true" >> $GITHUB_OUTPUT
+            # Extract YouTube URL
+            YOUTUBE_URL=$(grep "🔗 URL:" upload_${{ matrix.sign }}.log | tail -n 1 | sed 's/.*🔗 URL: //')
+            echo "url=$YOUTUBE_URL" >> $GITHUB_OUTPUT
+            echo "${{ matrix.sign }}:$YOUTUBE_URL" >> workflow_data/uploaded.txt
+          else
+            echo "uploaded=false" >> $GITHUB_OUTPUT
+            echo "${{ matrix.sign }}" >> workflow_data/failed.txt
+            exit 1
+          fi
+
+      # ==================== DELETE ====================
+      - name: Delete ${{ matrix.sign }} files
+        if: steps.upload.outcome == 'success'
+        run: |
+          rm -f videos/youtube_shorts/${{ matrix.sign }}_*.mp4
+          rm -f videos/instagram_reels/${{ matrix.sign }}_*.mp4
+
+      - name: Upload logs
+        if: always()
         uses: actions/upload-artifact@v4
-        if: always()
         with:
-          name: astrofinance-backup-aries
-          path: videos/youtube_shorts/Aries_*.mp4
-          retention-days: 7
-          if-no-files-found: warn
-      
-      - name: Upload Instagram Reels artifact
+          name: logs-${{ matrix.sign }}
+          path: |
+            generate_${{ matrix.sign }}.log
+            upload_${{ matrix.sign }}.log
+          retention-days: 1
+
+      - name: Persist tracking data
+        if: always()
         uses: actions/upload-artifact@v4
-        if: always()
         with:
-          name: astrofinance-insta-aries
-          path: videos/instagram_reels/Aries_*.mp4
-          retention-days: 7
-          if-no-files-found: warn
+          name: workflow-data
+          path: workflow_data/
+          retention-days: 1
 
-  taurus:
-    needs: aries
+  # ==================== EMAIL NOTIFICATION ====================
+  send-email:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    needs: process-signs
+    if: always()
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-      - run: sudo apt-get update && sudo apt-get install -y ffmpeg imagemagick && sudo sed -i '/<policy domain="path" rights="none" pattern="@\*"/d' /etc/ImageMagick-6/policy.xml
-      - run: pip install -r requirements.txt
-      - run: mkdir -p videos/youtube_shorts/ videos/instagram_reels/
-      - run: python generate_short.py --sign "Taurus"
-        env:
-          HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-      - run: sleep 90 && python upload_youtube.py --sign "Taurus" --shorts
-        env:
-          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
-          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
-          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
-        if: env.YOUTUBE_CLIENT_ID != '' && github.event.inputs.auto_upload != 'false'
-        continue-on-error: true
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: astrofinance-backup-taurus
-          path: videos/youtube_shorts/Taurus_*.mp4
-          retention-days: 7
-          if-no-files-found: warn
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: astrofinance-insta-taurus
-          path: videos/instagram_reels/Taurus_*.mp4
-          retention-days: 7
-          if-no-files-found: warn
 
-  gemini:
-    needs: taurus
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-      - run: sudo apt-get update && sudo apt-get install -y ffmpeg imagemagick && sudo sed -i '/<policy domain="path" rights="none" pattern="@\*"/d' /etc/ImageMagick-6/policy.xml
-      - run: pip install -r requirements.txt
-      - run: mkdir -p videos/youtube_shorts/ videos/instagram_reels/
-      - run: python generate_short.py --sign "Gemini"
-        env:
-          HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-      - run: sleep 90 && python upload_youtube.py --sign "Gemini" --shorts
-        env:
-          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
-          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
-          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
-        if: env.YOUTUBE_CLIENT_ID != '' && github.event.inputs.auto_upload != 'false'
-        continue-on-error: true
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: astrofinance-backup-gemini
-          path: videos/youtube_shorts/Gemini_*.mp4
-          retention-days: 7
-          if-no-files-found: warn
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: astrofinance-insta-gemini
-          path: videos/instagram_reels/Gemini_*.mp4
-          retention-days: 7
-          if-no-files-found: warn
+      - name: Install email dependencies
+        run: pip install requests
 
-  cancer:
-    needs: gemini
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Download tracking data
+        uses: actions/download-artifact@v4
         with:
-          python-version: '3.10'
-      - run: sudo apt-get update && sudo apt-get install -y ffmpeg imagemagick && sudo sed -i '/<policy domain="path" rights="none" pattern="@\*"/d' /etc/ImageMagick-6/policy.xml
-      - run: pip install -r requirements.txt
-      - run: mkdir -p videos/youtube_shorts/ videos/instagram_reels/
-      - run: python generate_short.py --sign "Cancer"
-        env:
-          HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-      - run: sleep 90 && python upload_youtube.py --sign "Cancer" --shorts
-        env:
-          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
-          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
-          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
-        if: env.YOUTUBE_CLIENT_ID != '' && github.event.inputs.auto_upload != 'false'
-        continue-on-error: true
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: astrofinance-backup-cancer
-          path: videos/youtube_shorts/Cancer_*.mp4
-          retention-days: 7
-          if-no-files-found: warn
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: astrofinance-insta-cancer
-          path: videos/instagram_reels/Cancer_*.mp4
-          retention-days: 7
-          if-no-files-found: warn
+          name: workflow-data
+          path: workflow_data/
 
-  leo:
-    needs: cancer
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-      - run: sudo apt-get update && sudo apt-get install -y ffmpeg imagemagick && sudo sed -i '/<policy domain="path" rights="none" pattern="@\*"/d' /etc/ImageMagick-6/policy.xml
-      - run: pip install -r requirements.txt
-      - run: mkdir -p videos/youtube_shorts/ videos/instagram_reels/
-      - run: python generate_short.py --sign "Leo"
-        env:
-          HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-      - run: sleep 90 && python upload_youtube.py --sign "Leo" --shorts
-        env:
-          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
-          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
-          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
-        if: env.YOUTUBE_CLIENT_ID != '' && github.event.inputs.auto_upload != 'false'
-        continue-on-error: true
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: astrofinance-backup-leo
-          path: videos/youtube_shorts/Leo_*.mp4
-          retention-days: 7
-          if-no-files-found: warn
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: astrofinance-insta-leo
-          path: videos/instagram_reels/Leo_*.mp4
-          retention-days: 7
-          if-no-files-found: warn
+      - name: Prepare email data
+        id: email_data
+        run: |
+          GENERATED=$(grep -v '^$' workflow_data/generated.txt 2>/dev/null | tr '\n' ',' | sed 's/,$//')
+          UPLOADED=$(grep -v '^$' workflow_data/uploaded.txt 2>/dev/null | tr '\n' ',' | sed 's/,$//')
+          FAILED=$(grep -v '^$' workflow_data/failed.txt 2>/dev/null | tr '\n' ',' | sed 's/,$//')
+          
+          if [ -z "$FAILED" ]; then
+            STATUS="success"
+          else
+            STATUS="failure"
+          fi
+          
+          echo "status=$STATUS" >> $GITHUB_OUTPUT
+          echo "generated=$GENERATED" >> $GITHUB_OUTPUT
+          echo "uploaded=$UPLOADED" >> $GITHUB_OUTPUT
+          echo "failed=$FAILED" >> $GITHUB_OUTPUT
 
-  virgo:
-    needs: leo
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-      - run: sudo apt-get update && sudo apt-get install -y ffmpeg imagemagick && sudo sed -i '/<policy domain="path" rights="none" pattern="@\*"/d' /etc/ImageMagick-6/policy.xml
-      - run: pip install -r requirements.txt
-      - run: mkdir -p videos/youtube_shorts/ videos/instagram_reels/
-      - run: python generate_short.py --sign "Virgo"
+      - name: Send email report
         env:
-          HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-      - run: sleep 90 && python upload_youtube.py --sign "Virgo" --shorts
-        env:
-          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
-          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
-          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
-        if: env.YOUTUBE_CLIENT_ID != '' && github.event.inputs.auto_upload != 'false'
-        continue-on-error: true
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: astrofinance-backup-virgo
-          path: videos/youtube_shorts/Virgo_*.mp4
-          retention-days: 7
-          if-no-files-found: warn
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: astrofinance-insta-virgo
-          path: videos/instagram_reels/Virgo_*.mp4
-          retention-days: 7
-          if-no-files-found: warn
-
-  libra:
-    needs: virgo
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-      - run: sudo apt-get update && sudo apt-get install -y ffmpeg imagemagick && sudo sed -i '/<policy domain="path" rights="none" pattern="@\*"/d' /etc/ImageMagick-6/policy.xml
-      - run: pip install -r requirements.txt
-      - run: mkdir -p videos/youtube_shorts/ videos/instagram_reels/
-      - run: python generate_short.py --sign "Libra"
-        env:
-          HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-      - run: sleep 90 && python upload_youtube.py --sign "Libra" --shorts
-        env:
-          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
-          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
-          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
-        if: env.YOUTUBE_CLIENT_ID != '' && github.event.inputs.auto_upload != 'false'
-        continue-on-error: true
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: astrofinance-backup-libra
-          path: videos/youtube_shorts/Libra_*.mp4
-          retention-days: 7
-          if-no-files-found: warn
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: astrofinance-insta-libra
-          path: videos/instagram_reels/Libra_*.mp4
-          retention-days: 7
-          if-no-files-found: warn
-
-  scorpio:
-    needs: libra
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-      - run: sudo apt-get update && sudo apt-get install -y ffmpeg imagemagick && sudo sed -i '/<policy domain="path" rights="none" pattern="@\*"/d' /etc/ImageMagick-6/policy.xml
-      - run: pip install -r requirements.txt
-      - run: mkdir -p videos/youtube_shorts/ videos/instagram_reels/
-      - run: python generate_short.py --sign "Scorpio"
-        env:
-          HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-      - run: sleep 90 && python upload_youtube.py --sign "Scorpio" --shorts
-        env:
-          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
-          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
-          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
-        if: env.YOUTUBE_CLIENT_ID != '' && github.event.inputs.auto_upload != 'false'
-        continue-on-error: true
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: astrofinance-backup-scorpio
-          path: videos/youtube_shorts/Scorpio_*.mp4
-          retention-days: 7
-          if-no-files-found: warn
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: astrofinance-insta-scorpio
-          path: videos/instagram_reels/Scorpio_*.mp4
-          retention-days: 7
-          if-no-files-found: warn
-
-  sagittarius:
-    needs: scorpio
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-      - run: sudo apt-get update && sudo apt-get install -y ffmpeg imagemagick && sudo sed -i '/<policy domain="path" rights="none" pattern="@\*"/d' /etc/ImageMagick-6/policy.xml
-      - run: pip install -r requirements.txt
-      - run: mkdir -p videos/youtube_shorts/ videos/instagram_reels/
-      - run: python generate_short.py --sign "Sagittarius"
-        env:
-          HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-      - run: sleep 90 && python upload_youtube.py --sign "Sagittarius" --shorts
-        env:
-          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
-          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
-          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
-        if: env.YOUTUBE_CLIENT_ID != '' && github.event.inputs.auto_upload != 'false'
-        continue-on-error: true
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: astrofinance-backup-sagittarius
-          path: videos/youtube_shorts/Sagittarius_*.mp4
-          retention-days: 7
-          if-no-files-found: warn
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: astrofinance-insta-sagittarius
-          path: videos/instagram_reels/Sagittarius_*.mp4
-          retention-days: 7
-          if-no-files-found: warn
-
-  capricorn:
-    needs: sagittarius
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-      - run: sudo apt-get update && sudo apt-get install -y ffmpeg imagemagick && sudo sed -i '/<policy domain="path" rights="none" pattern="@\*"/d' /etc/ImageMagick-6/policy.xml
-      - run: pip install -r requirements.txt
-      - run: mkdir -p videos/youtube_shorts/ videos/instagram_reels/
-      - run: python generate_short.py --sign "Capricorn"
-        env:
-          HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-      - run: sleep 90 && python upload_youtube.py --sign "Capricorn" --shorts
-        env:
-          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
-          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
-          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
-        if: env.YOUTUBE_CLIENT_ID != '' && github.event.inputs.auto_upload != 'false'
-        continue-on-error: true
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: astrofinance-backup-capricorn
-          path: videos/youtube_shorts/Capricorn_*.mp4
-          retention-days: 7
-          if-no-files-found: warn
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: astrofinance-insta-capricorn
-          path: videos/instagram_reels/Capricorn_*.mp4
-          retention-days: 7
-          if-no-files-found: warn
-
-  aquarius:
-    needs: capricorn
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-      - run: sudo apt-get update && sudo apt-get install -y ffmpeg imagemagick && sudo sed -i '/<policy domain="path" rights="none" pattern="@\*"/d' /etc/ImageMagick-6/policy.xml
-      - run: pip install -r requirements.txt
-      - run: mkdir -p videos/youtube_shorts/ videos/instagram_reels/
-      - run: python generate_short.py --sign "Aquarius"
-        env:
-          HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-      - run: sleep 90 && python upload_youtube.py --sign "Aquarius" --shorts
-        env:
-          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
-          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
-          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
-        if: env.YOUTUBE_CLIENT_ID != '' && github.event.inputs.auto_upload != 'false'
-        continue-on-error: true
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: astrofinance-backup-aquarius
-          path: videos/youtube_shorts/Aquarius_*.mp4
-          retention-days: 7
-          if-no-files-found: warn
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: astrofinance-insta-aquarius
-          path: videos/instagram_reels/Aquarius_*.mp4
-          retention-days: 7
-          if-no-files-found: warn
-
-  pisces:
-    needs: aquarius
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-      - run: sudo apt-get update && sudo apt-get install -y ffmpeg imagemagick && sudo sed -i '/<policy domain="path" rights="none" pattern="@\*"/d' /etc/ImageMagick-6/policy.xml
-      - run: pip install -r requirements.txt
-      - run: mkdir -p videos/youtube_shorts/ videos/instagram_reels/
-      - run: python generate_short.py --sign "Pisces"
-        env:
-          HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-      - run: sleep 90 && python upload_youtube.py --sign "Pisces" --shorts
-        env:
-          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
-          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
-          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
-        if: env.YOUTUBE_CLIENT_ID != '' && github.event.inputs.auto_upload != 'false'
-        continue-on-error: true
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: astrofinance-backup-pisces
-          path: videos/youtube_shorts/Pisces_*.mp4
-          retention-days: 7
-          if-no-files-found: warn
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: astrofinance-insta-pisces
-          path: videos/instagram_reels/Pisces_*.mp4
-          retention-days: 7
-          if-no-files-found: warn
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+          SMTP_SERVER: ${{ secrets.SMTP_SERVER }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+        run: |
+          python send_email.py \
+            --status "${{ steps.email_data.outputs.status }}" \
+            --generated "${{ steps.email_data.outputs.generated }}" \
+            --uploaded "${{ steps.email_data.outputs.uploaded }}" \
+            --failed "${{ steps.email_data.outputs.failed }}"
