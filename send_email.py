@@ -12,8 +12,8 @@ from datetime import datetime
 
 # Get Resend API key from environment
 RESEND_API_KEY = os.getenv('RESEND_API_KEY', '')
-EMAIL_TO = os.getenv('EMAIL_TO', 'wealthealphaglobal@gmail.com')  # Can be multiple addresses now
-EMAIL_FROM = os.getenv('EMAIL_FROM', 'noreply@astrofinance.com')  # Your verified domain
+EMAIL_TO = os.getenv('EMAIL_TO', 'wealthealphaglobal@gmail.com')  # Multiple emails comma-separated
+EMAIL_FROM = 'onboarding@resend.dev'  # Resend's default testing domain (always works)
 
 def send_email_resend(status, generated_signs, uploaded_signs, failed_signs):
     """Send email notification using Resend API"""
