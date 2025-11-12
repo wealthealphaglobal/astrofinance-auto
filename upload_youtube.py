@@ -61,7 +61,8 @@ def upload_to_youtube(video_path, sign, is_shorts=False):
         youtube = build('youtube', 'v3', credentials=credentials)
         
         # Create video metadata
-        today = datetime.now().strftime("%B %d, %Y")
+        AUS_TZ = pytz.timezone('Australia/Sydney')
+        today = datetime.now(AUS_TZ).strftime("%B %d, %Y")
         
         if is_shorts:
             title = f"{sign} Daily Horoscope #Shorts"
