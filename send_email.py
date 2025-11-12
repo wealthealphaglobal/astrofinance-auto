@@ -12,8 +12,8 @@ from datetime import datetime
 
 # Get Resend API key from environment
 RESEND_API_KEY = os.getenv('RESEND_API_KEY', '')
-EMAIL_TO = os.getenv('EMAIL_TO', 'tumu.mtm@gmail.com')
-EMAIL_FROM = 'noreply@resend.dev'  # Use Resend's default sender or your verified domain
+EMAIL_TO = os.getenv('EMAIL_TO', 'wealthealphaglobal@gmail.com')  # Can be multiple addresses now
+EMAIL_FROM = os.getenv('EMAIL_FROM', 'noreply@astrofinance.com')  # Your verified domain
 
 def send_email_resend(status, generated_signs, uploaded_signs, failed_signs):
     """Send email notification using Resend API"""
@@ -149,41 +149,50 @@ def send_email_resend(status, generated_signs, uploaded_signs, failed_signs):
         </html>
         """
         
+        # Parse multiple recipients (comma-separated)
+        recipients = [email.strip() for email in EMAIL_TO.split(',') if email.strip()]
+        
         # Prepare Resend API request
-        print(f"📧 Sending email via Resend to {EMAIL_TO}...")
+        print(f"📧 Sending emails via Resend...")
+        print(f"   Recipients: {', '.join(recipients)}")
         
         headers = {
             "Authorization": f"Bearer {RESEND_API_KEY}",
             "Content-Type": "application/json"
         }
         
-        payload = {
-            "from": EMAIL_FROM,
-            "to": EMAIL_TO,
-            "subject": subject,
-            "html": html_body,
-            "reply_to": "noreply@resend.dev"
-        }
+        # Send to each recipient (Resend free tier limitation)
+        all_success = True
+        for recipient in recipients:
+            payload = {
+                "from": EMAIL_FROM,
+                "to": recipient,
+                "subject": subject,
+                "html": html_body,
+                "reply_to": EMAIL_FROM
+            }
+            
+            try:
+                response = requests.post(
+                    "https://api.resend.com/emails",
+                    json=payload,
+                    headers=headers,
+                    timeout=30
+                )
+                
+                if response.status_code in [200, 201]:
+                    result = response.json()
+                    email_id = result.get('id', 'unknown')
+                    print(f"   ✅ Sent to {recipient} (ID: {email_id})")
+                else:
+                    print(f"   ❌ Failed to send to {recipient}: {response.status_code}")
+                    print(f"      {response.text}")
+                    all_success = False
+            except Exception as e:
+                print(f"   ❌ Error sending to {recipient}: {e}")
+                all_success = False
         
-        response = requests.post(
-            "https://api.resend.com/emails",
-            json=payload,
-            headers=headers,
-            timeout=30
-        )
-        
-        # Check response
-        if response.status_code in [200, 201]:
-            result = response.json()
-            email_id = result.get('id', 'unknown')
-            print(f"✅ Email sent successfully!")
-            print(f"   Email ID: {email_id}")
-            print(f"   To: {EMAIL_TO}")
-            return True
-        else:
-            print(f"❌ Resend API error: {response.status_code}")
-            print(f"   Response: {response.text}")
-            return False
+        return all_success
         
     except Exception as e:
         print(f"❌ Email failed: {e}")
