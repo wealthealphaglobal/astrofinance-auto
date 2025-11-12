@@ -155,26 +155,15 @@ jobs:
         if: github.event.inputs.skip_generation == 'true'
         env:
           EMAIL_TO: ${{ secrets.EMAIL_TO }}
-          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
-          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
-          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+          GMAIL_ADDRESS: ${{ secrets.GMAIL_ADDRESS }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
         run: |
           echo "🧪 TEST MODE: Skipping generation, sending test email..."
-          python3 << 'EOF'
-          import subprocess
-          
-          # Send test email with sample data
-          cmd = [
-              "python", "send_email.py",
-              "--status", "success",
-              "--generated", "Aries,Taurus,Gemini",
-              "--uploaded", "Aries:https://youtube.com/watch?v=test1,Taurus:https://youtube.com/watch?v=test2",
-              "--failed", "Cancer,Leo"
-          ]
-          
-          result = subprocess.run(cmd)
-          exit(result.returncode)
-          EOF
+          python send_email.py \
+            --status "success" \
+            --generated "Aries,Taurus,Gemini" \
+            --uploaded "Aries:https://youtube.com/watch?v=test1,Taurus:https://youtube.com/watch?v=test2" \
+            --failed "Cancer,Leo"
 
       # ==================== NORMAL MODE: Compile results from jobs ====================
       - name: Download all results (Normal Mode)
@@ -187,13 +176,11 @@ jobs:
         if: github.event.inputs.skip_generation != 'true'
         env:
           EMAIL_TO: ${{ secrets.EMAIL_TO }}
-          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
-          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
-          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+          GMAIL_ADDRESS: ${{ secrets.GMAIL_ADDRESS }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
         run: |
           python3 << 'EOF'
           import os
-          import glob
           import subprocess
           
           SIGNS = ['Aries', 'Taurus', 'Gemini', 'Cancer', 'Leo', 'Virgo', 'Libra', 'Scorpio', 'Sagittarius', 'Capricorn', 'Aquarius', 'Pisces']
