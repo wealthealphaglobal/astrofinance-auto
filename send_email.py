@@ -1,30 +1,27 @@
 #!/usr/bin/env python3
 """
-Send email notifications using Gmail SMTP
-Usage: python send_email.py --status success --generated Aries,Taurus --uploaded Aries,Taurus
+Send email notifications using Resend API
+Usage: python send_email.py --status success --generated Aries,Taurus --uploaded Aries:url,Taurus:url --failed Gemini
 """
 
 import os
 import sys
 import argparse
-import smtplib
+import requests
 from datetime import datetime
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 
-def send_email(status, generated_signs, uploaded_signs, failed_signs):
-    """Send email using Gmail SMTP"""
+# Get Resend API key from environment
+RESEND_API_KEY = os.getenv('RESEND_API_KEY', '')
+EMAIL_TO = os.getenv('EMAIL_TO', 'tumu.mtm@gmail.com')
+EMAIL_FROM = 'noreply@resend.dev'  # Use Resend's default sender or your verified domain
+
+def send_email_resend(status, generated_signs, uploaded_signs, failed_signs):
+    """Send email notification using Resend API"""
     
-    # Get Gmail app password from environment
- #   gmail_password = os.getenv('GMAIL_APP_PASSWORD', '')
-    
-    # Hardcoded emails
-    email_from = "tumu.mtm@gmail.com"
-    email_to = "tumu.mtm@gmail.com"
-    
-    #if not gmail_password:
-     #   print("⚠️ Missing GMAIL_APP_PASSWORD in GitHub Secrets")
-     #   return False
+    if not RESEND_API_KEY:
+        print("❌ Missing RESEND_API_KEY in environment variables")
+        print("   Set it in GitHub Secrets as RESEND_API_KEY")
+        return False
     
     try:
         # Parse inputs
@@ -43,48 +40,87 @@ def send_email(status, generated_signs, uploaded_signs, failed_signs):
         if status == 'success':
             subject = f"✅ AstroFinance Daily Report - {timestamp}"
             color = "#27ae60"
+            emoji = "✅"
         else:
             subject = f"⚠️ AstroFinance Daily Report - {timestamp}"
             color = "#e74c3c"
+            emoji = "⚠️"
         
         # Build HTML email
         html_body = f"""
         <html>
         <head>
             <style>
-                body {{ font-family: Arial, sans-serif; background-color: #f5f5f5; padding: 20px; }}
-                .container {{ background-color: white; padding: 20px; border-radius: 10px; border-left: 5px solid {color}; }}
-                .header {{ color: {color}; font-size: 24px; font-weight: bold; margin-bottom: 10px; }}
-                .date {{ color: #666; font-size: 12px; margin-bottom: 20px; }}
-                .section {{ margin: 20px 0; }}
-                .section-title {{ background-color: #f9f9f9; padding: 10px; font-weight: bold; border-left: 3px solid {color}; }}
-                .sign-list {{ margin-left: 20px; margin-top: 10px; }}
-                .sign {{ padding: 5px 0; }}
+                body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; margin: 0; }}
+                .container {{ background-color: white; padding: 30px; border-radius: 10px; border-left: 5px solid {color}; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-width: 600px; margin: 0 auto; }}
+                .header {{ color: {color}; font-size: 28px; font-weight: bold; margin-bottom: 10px; }}
+                .subheader {{ color: #666; font-size: 14px; margin-bottom: 20px; border-bottom: 2px solid #f0f0f0; padding-bottom: 15px; }}
+                .section {{ margin: 25px 0; }}
+                .section-title {{ background: linear-gradient(135deg, {color}20 0%, {color}10 100%); padding: 12px 15px; font-weight: bold; border-left: 4px solid {color}; font-size: 16px; margin-bottom: 15px; }}
+                .sign-list {{ margin-left: 20px; }}
+                .sign {{ padding: 8px 0; font-size: 15px; display: flex; align-items: center; }}
+                .sign-icon {{ margin-right: 10px; font-size: 18px; }}
                 .success {{ color: #27ae60; }}
                 .failed {{ color: #e74c3c; }}
-                .link {{ color: #3498db; text-decoration: none; }}
-                .footer {{ color: #999; font-size: 12px; margin-top: 30px; border-top: 1px solid #ddd; padding-top: 10px; }}
+                .skipped {{ color: #f39c12; }}
+                .link {{ color: #3498db; text-decoration: none; font-weight: 500; }}
+                .link:hover {{ text-decoration: underline; }}
+                .stats {{ display: flex; justify-content: space-around; margin: 20px 0; padding: 15px; background: #f8f9fa; border-radius: 8px; }}
+                .stat-box {{ text-align: center; }}
+                .stat-number {{ font-size: 24px; font-weight: bold; color: {color}; }}
+                .stat-label {{ font-size: 12px; color: #666; margin-top: 5px; }}
+                .footer {{ color: #999; font-size: 12px; margin-top: 30px; border-top: 2px solid #f0f0f0; padding-top: 15px; text-align: center; }}
+                .footer a {{ color: #3498db; text-decoration: none; }}
             </style>
         </head>
         <body>
             <div class="container">
-                <div class="header">{'✅ SUCCESS' if status == 'success' else '⚠️ FAILURE'}</div>
-                <div class="date">AstroFinance Daily Report</div>
-                <div class="date">{datetime.now().strftime('%B %d, %Y at %I:%M %p UTC')}</div>
+                <div class="header">{emoji} {status.upper()}</div>
+                <div class="subheader">AstroFinance Daily Report • {datetime.now().strftime('%B %d, %Y at %I:%M %p UTC')}</div>
                 
-                <div class="section">
-                    <div class="section-title">🎬 GENERATION</div>
-                    <div class="sign-list">
-                        <div class="sign">✅ Generated: {len(generated)}/12</div>
-                        {chr(10).join(f'<div class="sign success">  ✅ {s}</div>' for s in sorted(generated)) if generated else '<div class="sign">  None</div>'}
+                <div class="stats">
+                    <div class="stat-box">
+                        <div class="stat-number">{len(generated)}</div>
+                        <div class="stat-label">Generated</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-number">{len(uploaded_with_urls)}</div>
+                        <div class="stat-label">Uploaded</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-number">{len(failed)}</div>
+                        <div class="stat-label">Failed</div>
                     </div>
                 </div>
                 
                 <div class="section">
-                    <div class="section-title">📤 UPLOAD TO YOUTUBE</div>
+                    <div class="section-title">🎬 GENERATION REPORT</div>
                     <div class="sign-list">
-                        <div class="sign">✅ Uploaded: {len(uploaded_with_urls)}/12</div>
-                        {chr(10).join(f'<div class="sign success">  ✅ <a href="{uploaded_with_urls.get(s, "#")}" class="link">{s}</a></div>' for s in sorted(uploaded_with_urls.keys())) if uploaded_with_urls else '<div class="sign">  None</div>'}
+        """
+        
+        if generated:
+            for s in sorted(generated):
+                html_body += f'<div class="sign"><span class="sign-icon success">✅</span><span class="success">{s}</span></div>'
+        else:
+            html_body += '<div class="sign"><span class="sign-icon skipped">⏭️</span><span class="skipped">No videos generated</span></div>'
+        
+        html_body += """
+                    </div>
+                </div>
+                
+                <div class="section">
+                    <div class="section-title">📤 YOUTUBE UPLOAD REPORT</div>
+                    <div class="sign-list">
+        """
+        
+        if uploaded_with_urls:
+            for s in sorted(uploaded_with_urls.keys()):
+                url = uploaded_with_urls[s]
+                html_body += f'<div class="sign"><span class="sign-icon success">✅</span><span class="success"><a href="{url}" class="link">{s}</a></span></div>'
+        else:
+            html_body += '<div class="sign"><span class="sign-icon skipped">⏭️</span><span class="skipped">No videos uploaded</span></div>'
+        
+        html_body += """
                     </div>
                 </div>
         """
@@ -92,40 +128,62 @@ def send_email(status, generated_signs, uploaded_signs, failed_signs):
         if failed:
             html_body += f"""
                 <div class="section">
-                    <div class="section-title">❌ FAILED</div>
+                    <div class="section-title">❌ FAILED ITEMS</div>
                     <div class="sign-list">
-                        {chr(10).join(f'<div class="sign failed">  ❌ {s}</div>' for s in sorted(failed))}
+            """
+            for s in sorted(failed):
+                html_body += f'<div class="sign"><span class="sign-icon failed">❌</span><span class="failed">{s}</span></div>'
+            
+            html_body += """
                     </div>
                 </div>
             """
         
-        html_body += f"""
+        html_body += """
                 <div class="footer">
-                    <p>Automated daily report from AstroFinance</p>
+                    <p>🌟 <strong>AstroFinance Daily</strong> - Automated Report</p>
+                    <p style="margin-top: 10px; font-size: 11px;">This is an automated message. Please do not reply to this email.</p>
                 </div>
             </div>
         </body>
         </html>
         """
         
-        # Send via Gmail SMTP
-        print(f"📧 Sending email to {email_to}...")
+        # Prepare Resend API request
+        print(f"📧 Sending email via Resend to {EMAIL_TO}...")
         
-        msg = MIMEMultipart()
-        msg['From'] = email_from
-        msg['To'] = email_to
-        msg['Subject'] = subject
-        msg.attach(MIMEText(html_body, 'html'))
+        headers = {
+            "Authorization": f"Bearer {RESEND_API_KEY}",
+            "Content-Type": "application/json"
+        }
         
-        # Connect to Gmail SMTP
-        server = smtplib.SMTP('smtp.gmail.com', 587)
-        server.starttls()
-        server.login(email_from, gmail_password)
-        server.send_message(msg)
-        server.quit()
+        payload = {
+            "from": EMAIL_FROM,
+            "to": EMAIL_TO,
+            "subject": subject,
+            "html": html_body,
+            "reply_to": "noreply@resend.dev"
+        }
         
-        print(f"✅ Email sent successfully!")
-        return True
+        response = requests.post(
+            "https://api.resend.com/emails",
+            json=payload,
+            headers=headers,
+            timeout=30
+        )
+        
+        # Check response
+        if response.status_code in [200, 201]:
+            result = response.json()
+            email_id = result.get('id', 'unknown')
+            print(f"✅ Email sent successfully!")
+            print(f"   Email ID: {email_id}")
+            print(f"   To: {EMAIL_TO}")
+            return True
+        else:
+            print(f"❌ Resend API error: {response.status_code}")
+            print(f"   Response: {response.text}")
+            return False
         
     except Exception as e:
         print(f"❌ Email failed: {e}")
@@ -135,7 +193,7 @@ def send_email(status, generated_signs, uploaded_signs, failed_signs):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Send AstroFinance email report")
+    parser = argparse.ArgumentParser(description="Send AstroFinance email report via Resend")
     parser.add_argument('--status', required=True, choices=['success', 'failure'], help='Report status')
     parser.add_argument('--generated', default='', help='Comma-separated list of generated signs')
     parser.add_argument('--uploaded', default='', help='Comma-separated list of uploaded signs (sign:url,sign:url)')
@@ -143,5 +201,16 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
     
-    success = send_email(args.status, args.generated, args.uploaded, args.failed)
+    print("="*60)
+    print("📧 ASTROFINANCE EMAIL NOTIFICATION")
+    print("="*60)
+    print(f"Status: {args.status.upper()}")
+    print(f"Generated: {args.generated or 'None'}")
+    print(f"Uploaded: {args.uploaded or 'None'}")
+    print(f"Failed: {args.failed or 'None'}")
+    print("-"*60)
+    
+    success = send_email_resend(args.status, args.generated, args.uploaded, args.failed)
+    
+    print("="*60)
     sys.exit(0 if success else 1)
