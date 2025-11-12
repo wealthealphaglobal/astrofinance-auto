@@ -6,11 +6,15 @@ import sys
 import argparse
 import glob
 from datetime import datetime
+import pytz
 import requests
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
+
+# Australian timezone
+AUS_TZ = pytz.timezone('Australia/Sydney')
 
 # Get YouTube credentials from environment
 YOUTUBE_CLIENT_ID = os.getenv('YOUTUBE_CLIENT_ID', '')
