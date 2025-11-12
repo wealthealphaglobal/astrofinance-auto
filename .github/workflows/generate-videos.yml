@@ -14,19 +14,20 @@ on:
           - 'true'
           - 'false'
       skip_generation:
-  description: 'Skip video generation & upload (test email only)?'
-  required: false
-  default: 'false'
-  type: choice
-  options:
-    - 'true'
-    - 'false'
+        description: 'Skip video generation & upload (test email only)?'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
 
 permissions:
   contents: read
 
 jobs:
   process-signs:
+    if: github.event.inputs.skip_generation != 'true'
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -147,14 +148,37 @@ jobs:
       - name: Install dependencies
         run: pip install requests
 
-      - name: Download all results
+      # ==================== TEST MODE: Skip to email directly ====================
+      - name: Test Email Mode (Skip Generation)
+        if: github.event.inputs.skip_generation == 'true'
+        run: |
+          echo "🧪 TEST MODE: Skipping generation, sending test email..."
+          python3 << 'EOF'
+          import subprocess
+          
+          # Send test email with sample data
+          cmd = [
+              "python", "send_email.py",
+              "--status", "success",
+              "--generated", "Aries,Taurus,Gemini",
+              "--uploaded", "Aries:https://youtube.com/watch?v=test1,Taurus:https://youtube.com/watch?v=test2",
+              "--failed", "Cancer,Leo"
+          ]
+          
+          result = subprocess.run(cmd)
+          exit(result.returncode)
+          EOF
+
+      # ==================== NORMAL MODE: Compile results from jobs ====================
+      - name: Download all results (Normal Mode)
+        if: github.event.inputs.skip_generation != 'true'
         uses: actions/download-artifact@v4
         with:
           path: all_results
 
-      - name: Compile and send email
+      - name: Compile and send email (Normal Mode)
+        if: github.event.inputs.skip_generation != 'true'
         env:
-          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           EMAIL_TO: ${{ secrets.EMAIL_TO }}
         run: |
           python3 << 'EOF'
