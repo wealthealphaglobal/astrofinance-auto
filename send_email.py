@@ -16,7 +16,7 @@ def send_email(status, generated_signs, uploaded_signs, failed_signs):
     """Send email using Gmail SMTP"""
     
     # Get Gmail app password from environment
-    gmail_password = os.getenv('GMAIL_APP_PASSWORD', '')
+ #   gmail_password = os.getenv('GMAIL_APP_PASSWORD', '')
     
     # Hardcoded emails
     email_from = "tumu.mtm@gmail.com"
