@@ -2,7 +2,7 @@ name: Auto-Generate & Upload Videos for All Zodiac Signs
 
 on:
   schedule:
-    - cron: '0 12 * * *'  # 5:30 PM IST, 7 AM EST
+    - cron: '0 12 * * *'  # Daily at 6 AM AEDT
   workflow_dispatch:
     inputs:
       auto_upload:
@@ -72,7 +72,11 @@ jobs:
       # ==================== UPLOAD ====================
       - name: Upload ${{ matrix.sign }} to YouTube
         run: |
-          if [ "$GENERATE_SUCCESS" = "true" ]; then
+          if [ "${{ github.event.inputs.auto_upload }}" = "false" ]; then
+            echo "⏭️ SKIPPED: YouTube upload disabled"
+            echo "UPLOAD_SUCCESS=false" >> $GITHUB_ENV
+            echo "YOUTUBE_URL=" >> $GITHUB_ENV
+          elif [ "$GENERATE_SUCCESS" = "true" ]; then
             python upload_youtube.py --sign "${{ matrix.sign }}" --shorts --no-cleanup 2>&1 | tee /tmp/upload.log
             if [ ${PIPESTATUS[0]} -eq 0 ]; then
               YOUTUBE_URL=$(grep "🔗 URL:" /tmp/upload.log | tail -n 1 | sed 's/.*🔗 URL: //')
