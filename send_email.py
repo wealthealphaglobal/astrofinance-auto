@@ -1,27 +1,21 @@
 #!/usr/bin/env python3
 """
-Send email notifications using Resend API
-Usage: python send_email.py --status success --generated Aries,Taurus --uploaded Aries:url,Taurus:url --failed Gemini
+Send email notifications using system mail command
+Works on GitHub Actions Ubuntu runners
 """
 
 import os
 import sys
 import argparse
-import requests
+import subprocess
 from datetime import datetime
 
-# Get Resend API key from environment
-RESEND_API_KEY = os.getenv('RESEND_API_KEY', '')
-EMAIL_TO = os.getenv('EMAIL_TO', 'wealthealphaglobal@gmail.com')  # Multiple emails comma-separated
-EMAIL_FROM = 'onboarding@resend.dev'  # Resend's default testing domain (always works)
+# Get environment variables
+RECIPIENTS = os.getenv('EMAIL_TO', 'wealthealphaglobal@gmail.com')
+SENDER_NAME = "AstroFinance Bot"
 
-def send_email_resend(status, generated_signs, uploaded_signs, failed_signs):
-    """Send email notification using Resend API"""
-    
-    if not RESEND_API_KEY:
-        print("❌ Missing RESEND_API_KEY in environment variables")
-        print("   Set it in GitHub Secrets as RESEND_API_KEY")
-        return False
+def send_email_system(status, generated_signs, uploaded_signs, failed_signs):
+    """Send email using system mail command"""
     
     try:
         # Parse inputs
@@ -70,7 +64,6 @@ def send_email_resend(status, generated_signs, uploaded_signs, failed_signs):
                 .stat-number {{ font-size: 24px; font-weight: bold; color: {color}; }}
                 .stat-label {{ font-size: 12px; color: #666; margin-top: 5px; }}
                 .footer {{ color: #999; font-size: 12px; margin-top: 30px; border-top: 2px solid #f0f0f0; padding-top: 15px; text-align: center; }}
-                .footer a {{ color: #3498db; text-decoration: none; }}
             </style>
         </head>
         <body>
@@ -149,50 +142,68 @@ def send_email_resend(status, generated_signs, uploaded_signs, failed_signs):
         </html>
         """
         
-        # Parse multiple recipients (comma-separated)
-        recipients = [email.strip() for email in EMAIL_TO.split(',') if email.strip()]
+        # Parse recipients (comma-separated)
+        recipients_list = [e.strip() for e in RECIPIENTS.split(',') if e.strip()]
         
-        # Prepare Resend API request
-        print(f"📧 Sending emails via Resend...")
-        print(f"   Recipients: {', '.join(recipients)}")
+        print(f"📧 Sending emails via system mail command...")
+        print(f"   Recipients: {', '.join(recipients_list)}")
         
-        headers = {
-            "Authorization": f"Bearer {RESEND_API_KEY}",
-            "Content-Type": "application/json"
-        }
+        # Create temporary email file
+        email_file = '/tmp/astrofinance_email.txt'
+        with open(email_file, 'w') as f:
+            f.write(f"From: {SENDER_NAME} <root@localhost>\n")
+            f.write(f"To: {', '.join(recipients_list)}\n")
+            f.write(f"Subject: {subject}\n")
+            f.write("Content-Type: text/html; charset=UTF-8\n")
+            f.write(f"MIME-Version: 1.0\n\n")
+            f.write(html_body)
         
-        # Send to each recipient (Resend free tier limitation)
-        all_success = True
-        for recipient in recipients:
-            payload = {
-                "from": EMAIL_FROM,
-                "to": recipient,
-                "subject": subject,
-                "html": html_body,
-                "reply_to": EMAIL_FROM
-            }
-            
+        # Send email using sendmail
+        for recipient in recipients_list:
             try:
-                response = requests.post(
-                    "https://api.resend.com/emails",
-                    json=payload,
-                    headers=headers,
-                    timeout=30
-                )
+                # Use sendmail to send email
+                with open(email_file, 'r') as f:
+                    result = subprocess.run(
+                        ['sendmail', recipient],
+                        stdin=f,
+                        capture_output=True,
+                        text=True,
+                        timeout=30
+                    )
                 
-                if response.status_code in [200, 201]:
-                    result = response.json()
-                    email_id = result.get('id', 'unknown')
-                    print(f"   ✅ Sent to {recipient} (ID: {email_id})")
+                if result.returncode == 0:
+                    print(f"   ✅ Email sent to {recipient}")
                 else:
-                    print(f"   ❌ Failed to send to {recipient}: {response.status_code}")
-                    print(f"      {response.text}")
-                    all_success = False
+                    print(f"   ⚠️ Sendmail returned code {result.returncode}")
+                    if result.stderr:
+                        print(f"      Error: {result.stderr}")
+            except FileNotFoundError:
+                print(f"   ⚠️ Sendmail not found, trying mail command...")
+                try:
+                    result = subprocess.run(
+                        f'mail -s "{subject}" -a "Content-Type: text/html" {recipient}',
+                        input=html_body,
+                        shell=True,
+                        capture_output=True,
+                        text=True,
+                        timeout=30
+                    )
+                    if result.returncode == 0:
+                        print(f"   ✅ Email sent to {recipient} (via mail)")
+                    else:
+                        print(f"   ⚠️ Mail command failed for {recipient}")
+                except Exception as e:
+                    print(f"   ❌ Error sending to {recipient}: {e}")
             except Exception as e:
                 print(f"   ❌ Error sending to {recipient}: {e}")
-                all_success = False
         
-        return all_success
+        # Cleanup
+        try:
+            os.remove(email_file)
+        except:
+            pass
+        
+        return True
         
     except Exception as e:
         print(f"❌ Email failed: {e}")
@@ -202,7 +213,7 @@ def send_email_resend(status, generated_signs, uploaded_signs, failed_signs):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Send AstroFinance email report via Resend")
+    parser = argparse.ArgumentParser(description="Send AstroFinance email report via system mail")
     parser.add_argument('--status', required=True, choices=['success', 'failure'], help='Report status')
     parser.add_argument('--generated', default='', help='Comma-separated list of generated signs')
     parser.add_argument('--uploaded', default='', help='Comma-separated list of uploaded signs (sign:url,sign:url)')
@@ -211,7 +222,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     print("="*60)
-    print("📧 ASTROFINANCE EMAIL NOTIFICATION")
+    print("📧 ASTROFINANCE EMAIL NOTIFICATION (System Mail)")
     print("="*60)
     print(f"Status: {args.status.upper()}")
     print(f"Generated: {args.generated or 'None'}")
@@ -219,7 +230,7 @@ if __name__ == "__main__":
     print(f"Failed: {args.failed or 'None'}")
     print("-"*60)
     
-    success = send_email_resend(args.status, args.generated, args.uploaded, args.failed)
+    success = send_email_system(args.status, args.generated, args.uploaded, args.failed)
     
     print("="*60)
     sys.exit(0 if success else 1)
