@@ -22,9 +22,9 @@ def send_email(status, generated_signs, uploaded_signs, failed_signs):
     email_from = "tumu.mtm@gmail.com"
     email_to = "tumu.mtm@gmail.com"
     
-    if not gmail_password:
-        print("⚠️ Missing GMAIL_APP_PASSWORD in GitHub Secrets")
-        return False
+    #if not gmail_password:
+     #   print("⚠️ Missing GMAIL_APP_PASSWORD in GitHub Secrets")
+     #   return False
     
     try:
         # Parse inputs
