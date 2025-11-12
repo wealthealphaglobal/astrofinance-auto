@@ -1,81 +1,30 @@
 #!/usr/bin/env python3
 """
-Send email notifications using Gmail API
-Uses same Google OAuth credentials as YouTube API
+Send email notifications using Gmail SMTP with App Password
+Simple and reliable - no OAuth needed
 """
 
 import os
 import sys
 import argparse
-import base64
+import smtplib
 from datetime import datetime
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from google.auth.transport.requests import Request
-from google.oauth2.credentials import Credentials
-from googleapiclient.discovery import build
 
-# Get Google credentials from environment (same as YouTube)
-YOUTUBE_CLIENT_ID = os.getenv('YOUTUBE_CLIENT_ID', '')
-YOUTUBE_CLIENT_SECRET = os.getenv('YOUTUBE_CLIENT_SECRET', '')
-YOUTUBE_REFRESH_TOKEN = os.getenv('YOUTUBE_REFRESH_TOKEN', '')
+# Get environment variables
+GMAIL_ADDRESS = os.getenv('GMAIL_ADDRESS', 'wealthealphaglobal@gmail.com')
+GMAIL_APP_PASSWORD = os.getenv('GMAIL_APP_PASSWORD', '')
+EMAIL_TO = os.getenv('EMAIL_TO', 'wealthealphaglobal@gmail.com')
 
-# Email recipients
-PRIMARY_EMAIL = os.getenv('EMAIL_TO', 'wealthealphaglobal@gmail.com')
-SECONDARY_EMAILS = os.getenv('SECONDARY_EMAILS', '')  # Comma-separated, optional
-
-def send_email_gmail_api(to_address, subject, html_body):
-    """Send email using Gmail API"""
+def send_email_smtp(status, generated_signs, uploaded_signs, failed_signs):
+    """Send email using Gmail SMTP"""
     
-    if not all([YOUTUBE_CLIENT_ID, YOUTUBE_CLIENT_SECRET, YOUTUBE_REFRESH_TOKEN]):
-        print(f"   ❌ Missing Google OAuth credentials")
+    if not GMAIL_APP_PASSWORD:
+        print("❌ Missing GMAIL_APP_PASSWORD in environment variables")
+        print("   Set it in GitHub Secrets as GMAIL_APP_PASSWORD")
+        print("   Get it from: https://myaccount.google.com/apppasswords")
         return False
-    
-    try:
-        # Create credentials using same YouTube tokens
-        credentials = Credentials(
-            token=None,
-            refresh_token=YOUTUBE_REFRESH_TOKEN,
-            token_uri="https://oauth2.googleapis.com/token",
-            client_id=YOUTUBE_CLIENT_ID,
-            client_secret=YOUTUBE_CLIENT_SECRET,
-            scopes=['https://www.googleapis.com/auth/gmail.send']
-        )
-        
-        # Refresh token to get valid access token
-        credentials.refresh(Request())
-        
-        # Build Gmail API client
-        gmail = build('gmail', 'v1', credentials=credentials)
-        
-        # Create email message
-        msg = MIMEMultipart('alternative')
-        msg['To'] = to_address
-        msg['Subject'] = subject
-        msg.attach(MIMEText(html_body, 'html'))
-        
-        # Encode message
-        raw_message = base64.urlsafe_b64encode(msg.as_bytes()).decode()
-        
-        # Send via Gmail API
-        send_message = {
-            'raw': raw_message
-        }
-        
-        result = gmail.users().messages().send(userId='me', body=send_message).execute()
-        
-        print(f"   ✅ Sent to {to_address} (Message ID: {result['id']})")
-        return True
-        
-    except Exception as e:
-        print(f"   ❌ Gmail API error for {to_address}: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
-
-
-def send_email_gmail(status, generated_signs, uploaded_signs, failed_signs):
-    """Send email to multiple recipients using Gmail API"""
     
     try:
         # Parse inputs
@@ -202,20 +151,47 @@ def send_email_gmail(status, generated_signs, uploaded_signs, failed_signs):
         </html>
         """
         
-        print(f"📧 Sending emails via Gmail API...")
+        # Parse recipients (comma-separated)
+        recipients_list = [e.strip() for e in EMAIL_TO.split(',') if e.strip()]
         
-        # Send to primary email
-        print(f"   PRIMARY: {PRIMARY_EMAIL}")
-        send_email_gmail_api(PRIMARY_EMAIL, subject, html_body)
+        print(f"📧 Sending emails via Gmail SMTP...")
+        print(f"   From: {GMAIL_ADDRESS}")
+        print(f"   Recipients: {', '.join(recipients_list)}")
         
-        # Send to secondary emails if provided
-        if SECONDARY_EMAILS:
-            secondary_list = [e.strip() for e in SECONDARY_EMAILS.split(',') if e.strip()]
-            for email in secondary_list:
-                print(f"   SECONDARY: {email}")
-                send_email_gmail_api(email, subject, html_body)
+        # Connect to Gmail SMTP
+        try:
+            server = smtplib.SMTP('smtp.gmail.com', 587)
+            server.starttls()
+            server.login(GMAIL_ADDRESS, GMAIL_APP_PASSWORD)
+            print(f"   ✅ Gmail authentication successful")
+        except smtplib.SMTPAuthenticationError as e:
+            print(f"   ❌ Gmail authentication failed: {e}")
+            print(f"   💡 Check your GMAIL_APP_PASSWORD is correct")
+            return False
+        except Exception as e:
+            print(f"   ❌ SMTP connection error: {e}")
+            return False
         
-        return True
+        # Send to each recipient
+        all_success = True
+        for recipient in recipients_list:
+            try:
+                msg = MIMEMultipart('alternative')
+                msg['From'] = GMAIL_ADDRESS
+                msg['To'] = recipient
+                msg['Subject'] = subject
+                msg.attach(MIMEText(html_body, 'html'))
+                
+                server.send_message(msg)
+                print(f"   ✅ Sent to {recipient}")
+            except Exception as e:
+                print(f"   ❌ Failed to send to {recipient}: {e}")
+                all_success = False
+        
+        # Close connection
+        server.quit()
+        
+        return all_success
         
     except Exception as e:
         print(f"❌ Email failed: {e}")
@@ -225,7 +201,7 @@ def send_email_gmail(status, generated_signs, uploaded_signs, failed_signs):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Send AstroFinance email report via Gmail API")
+    parser = argparse.ArgumentParser(description="Send AstroFinance email report via Gmail SMTP")
     parser.add_argument('--status', required=True, choices=['success', 'failure'], help='Report status')
     parser.add_argument('--generated', default='', help='Comma-separated list of generated signs')
     parser.add_argument('--uploaded', default='', help='Comma-separated list of uploaded signs (sign:url,sign:url)')
@@ -234,7 +210,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     print("="*60)
-    print("📧 ASTROFINANCE EMAIL NOTIFICATION (Gmail API)")
+    print("📧 ASTROFINANCE EMAIL NOTIFICATION (Gmail SMTP)")
     print("="*60)
     print(f"Status: {args.status.upper()}")
     print(f"Generated: {args.generated or 'None'}")
@@ -242,7 +218,7 @@ if __name__ == "__main__":
     print(f"Failed: {args.failed or 'None'}")
     print("-"*60)
     
-    success = send_email_gmail(args.status, args.generated, args.uploaded, args.failed)
+    success = send_email_smtp(args.status, args.generated, args.uploaded, args.failed)
     
     print("="*60)
     sys.exit(0 if success else 1)
