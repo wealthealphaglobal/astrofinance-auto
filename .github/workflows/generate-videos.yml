@@ -2,7 +2,7 @@ name: Auto-Generate & Upload Videos for All Zodiac Signs
 
 on:
   schedule:
-    - cron: '0 20 * * *'  # Daily at 6 AM AEDT
+    - cron: '0 12 * * *'  # 5:30 PM IST, 7 AM EST
   workflow_dispatch:
     inputs:
       auto_upload:
