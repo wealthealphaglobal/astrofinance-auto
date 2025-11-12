@@ -13,6 +13,14 @@ on:
         options:
           - 'true'
           - 'false'
+      skip_generation:
+  description: 'Skip video generation & upload (test email only)?'
+  required: false
+  default: 'false'
+  type: choice
+  options:
+    - 'true'
+    - 'false'
 
 permissions:
   contents: read
