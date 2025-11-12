@@ -111,38 +111,31 @@ text_style:
 # Branding
 branding:
   channel_name: "AstroFinance Daily"
-  tagline: "Where Cosmos Meets Cash"
+  tagline: "Vedic Wisdom Daily"
   watermark_text: "🌟 AstroFinance"
   watermark_position: "top-right"
   logo_file: null  # Optional: path to logo image
   
 # Video Metadata Templates
 metadata:
-  youtube_long:
-    title: "Daily Horoscope & Financial Guidance for All Zodiac Signs | {date}"
+  youtube_shorts:
+    title: "{sign} Daily Horoscope - Vedic Astrology | {date}"
     description: |
-      🌟 Welcome to AstroFinance Daily! 🌟
+      🌟 {sign} Daily Cosmic Guidance 🌟
       
-      Get your complete daily horoscope with wealth and health guidance for all 12 zodiac signs.
+      ✨ Vedic Astrology Reading for Today
+      💰 Wealth & Prosperity Tips
+      🏥 Health & Wellness Blessings
       
-      📅 Date: {date}
-      
-      ⏰ TIMESTAMPS:
-      {timestamps}
-      
-      💰 WHAT YOU'LL GET:
-      ✨ Detailed daily horoscope for your sign
-      💵 Wealth and investment tips
-      🏥 Health and wellness guidance
-      📊 Market insights and financial astrology
+      📍 For India & USA Audiences
       
       🔔 Subscribe for daily cosmic guidance!
+      💬 Comment your zodiac sign
       👍 Like if this resonates with you
-      💬 Comment your zodiac sign below
       
-      #Horoscope #Astrology #Finance #Wealth #Health #Zodiac #DailyHoroscope #FinancialAstrology
+      #{sign} #Horoscope #VedicAstrology #DailyHoroscope #Astrology #CosmicGuidance
       
-      ⚠️ Disclaimer: This content is for entertainment purposes only. Always consult licensed financial advisors and healthcare professionals for serious decisions.
+      ⚠️ For entertainment purposes only.
     tags:
       - horoscope
       - daily horoscope
