@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate a single zodiac sign video short"""
+"""Generate a single zodiac sign video short with subscribe button"""
 
 import os
 import sys
@@ -9,8 +9,8 @@ import pytz
 from datetime import datetime
 import yaml
 import requests
-from moviepy.editor import VideoFileClip, AudioFileClip, TextClip, CompositeVideoClip
-from PIL import Image
+from moviepy.editor import VideoFileClip, AudioFileClip, TextClip, CompositeVideoClip, ColorClip, concatenate_videoclips, ImageClip
+from PIL import Image, ImageDraw, ImageFont
 
 # Patch for Pillow compatibility
 if not hasattr(Image, 'ANTIALIAS'):
@@ -83,6 +83,69 @@ def get_day_of_week_background():
     print(f"     • {bg_filename}")
     print(f"     • {default_bg}")
     return None
+
+# ========================================
+# SUBSCRIBE BUTTON CREATION
+# ========================================
+
+def create_subscribe_button_image(width=1080, height=1920):
+    """Create a modern subscribe button overlay image"""
+    img = Image.new('RGBA', (width, height), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    
+    button_width = 400
+    button_height = 80
+    button_x = (width - button_width) // 2
+    button_y = height - 280
+    
+    button_color = (255, 0, 0, 255)  # YouTube Red
+    corner_radius = 40
+    
+    draw.rounded_rectangle(
+        [button_x, button_y, button_x + button_width, button_y + button_height],
+        radius=corner_radius,
+        fill=button_color,
+        outline=(255, 255, 255, 50),
+        width=3
+    )
+    
+    try:
+        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 50)
+        text_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 45)
+        channel_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 32)
+    except:
+        font = ImageFont.load_default()
+        text_font = ImageFont.load_default()
+        channel_font = ImageFont.load_default()
+    
+    bell_x = button_x + 30
+    bell_y = button_y + 15
+    draw.text((bell_x, bell_y), "🔔", font=font, fill=(255, 255, 255, 255))
+    
+    text = "SUBSCRIBE"
+    text_bbox = draw.textbbox((0, 0), text, font=text_font)
+    text_width = text_bbox[2] - text_bbox[0]
+    text_x = bell_x + 60
+    text_y = button_y + 18
+    
+    draw.text((text_x, text_y), text, font=text_font, fill=(255, 255, 255, 255))
+    
+    draw.line(
+        [(button_x, button_y + button_height + 3),
+         (button_x + button_width, button_y + button_height + 3)],
+        fill=(255, 255, 255, 100),
+        width=2
+    )
+    
+    channel_text = "AstroFinance Daily"
+    channel_bbox = draw.textbbox((0, 0), channel_text, font=channel_font)
+    channel_width = channel_bbox[2] - channel_bbox[0]
+    channel_x = (width - channel_width) // 2
+    channel_y = button_y + button_height + 30
+    
+    draw.text((channel_x, channel_y), channel_text, font=channel_font, fill=(255, 255, 255, 200))
+    
+    return img
 
 # ========================================
 # API FETCHING
@@ -339,10 +402,10 @@ def create_short(sign, content):
     
     screen_size = SHORTS_CONFIG['resolution']
     
-    # FIXED TIMING (as requested)
-    HOROSCOPE_TIME = 30  # Main horoscope: 30 seconds
-    WEALTH_TIME = 12     # Wealth tips: 12 seconds
-    HEALTH_TIME = 12     # Health tips: 12 seconds
+    # FIXED TIMING
+    HOROSCOPE_TIME = 30
+    WEALTH_TIME = 12
+    HEALTH_TIME = 12
     SUBSCRIBE_DURATION = 5
     TARGET_DURATION = 59
     
@@ -452,16 +515,12 @@ def create_short(sign, content):
         all_clips.append(chunk.set_position(('center', TEXT_Y)).set_start(current_time + chunk.start))
     current_time += HEALTH_TIME
     
-    # Subscribe
-    sub_text = TextClip(
-        "🔔 SUBSCRIBE\n\nLIKE • SHARE • COMMENT",
-        fontsize=61,
-        color="#FFD700",
-        font='Arial-Bold',
-        method='label',
-        align='center'
-    ).set_duration(SUBSCRIBE_DURATION).set_position('center').set_start(current_time).fadein(0.5)
-    all_clips.append(sub_text)
+    # Subscribe button overlay (on last 5 seconds, doesn't extend video)
+    sub_button_img = create_subscribe_button_image(screen_size[0], screen_size[1])
+    sub_button_img.save(os.path.join(VIDEO_CONFIG['temp_folder'], 'subscribe_button.png'))
+    sub_button_clip = ImageClip(os.path.join(VIDEO_CONFIG['temp_folder'], 'subscribe_button.png')).set_duration(5).set_start(current_time - 5)
+    sub_button_clip = sub_button_clip.fadein(0.3)
+    all_clips.append(sub_button_clip)
     
     # Composite
     final_video = CompositeVideoClip([bg_clip] + all_clips).set_duration(TARGET_DURATION)
@@ -487,9 +546,9 @@ def create_short(sign, content):
         fps=SHORTS_CONFIG['fps'],
         codec='libx264',
         audio_codec='aac',
-        preset='medium',  # Changed from ultrafast for better compression
-        bitrate='2000k',  # Reduce bitrate
-        audio_bitrate='128k',  # Lower audio bitrate
+        preset='medium',
+        bitrate='2000k',
+        audio_bitrate='128k',
         logger=None,
         verbose=False
     )
@@ -515,6 +574,12 @@ def create_short(sign, content):
     bg_clip.close()
     final_video.close()
     
+    # Remove temp button image
+    try:
+        os.remove(os.path.join(VIDEO_CONFIG['temp_folder'], 'subscribe_button.png'))
+    except:
+        pass
+    
     return output_file
 
 # ========================================
@@ -533,7 +598,7 @@ def main():
     print("="*60)
     aus_now = get_australian_datetime()
     print(f"📅 {aus_now.strftime('%B %d, %Y')}")
-    print(f"⏱️ Timing: Horoscope 30s | Wealth 12s | Health 12s | Subscribe 5s")
+    print(f"⏱️ Timing: Horoscope 30s | Wealth 12s | Health 12s | Subscribe 5s (overlaid)")
     print("-"*60)
     
     try:
